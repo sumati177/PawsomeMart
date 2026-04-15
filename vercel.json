@@ -1,18 +1,10 @@
 {
   "builds": [
-    {
-      "src": "index.php",
-      "use": "vercel-php@0.6.2"
-    }
+    { "src": "index.php", "use": "vercel-php@0.6.2" },
+    { "src": "styles.css", "use": "@vercel/static" }
   ],
   "routes": [
-    {
-      "src": "/(.*\\.css)",
-      "dest": "/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.php"
-    }
+    { "handle": "filesystem" },
+    { "src": "/(.*)", "dest": "/index.php" }
   ]
 }
