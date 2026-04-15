@@ -1,20 +1,16 @@
 <?php
 ob_start();
 require_once('config.php');
-$PAGE_TITLE = 'PetCare';
-
-// --- SESSION SECURITY ---
-// (Rate-limiting logic completely removed to maintain Vercel Session Persistance)
 
 // --- LOGOUT ACTIONS ---
-if (isset($_GET['action']) && $_GET['action'] === 'logout_user') { unset($_SESSION['user']); header('Location: index.php'); exit; }
-if (isset($_GET['action']) && $_GET['action'] === 'logout_admin') { unset($_SESSION['admin']); header('Location: index.php'); exit; }
+if (isset($_GET['action']) && $_GET['action'] === 'logout_user') { unset($_SESSION['user']); app_redirect('index.php'); }
+if (isset($_GET['action']) && $_GET['action'] === 'logout_admin') { unset($_SESSION['admin']); app_redirect('index.php'); }
 
 // --- CART REMOVAL ---
 if (isset($_GET['page']) && $_GET['page'] === 'cart' && isset($_GET['remove'])) {
     $i = (int)$_GET['remove'];
     if (isset($_SESSION['cart'][$i])) array_splice($_SESSION['cart'], $i, 1);
-    header('Location:index.php?page=cart'); exit;
+    app_redirect('index.php?page=cart');
 }
 
 // --- POST ACTIONS ---
@@ -34,21 +30,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         if (isset($res['error'])) {
             $_SESSION['flash_err'] = 'Registration failed: ' . $res['message'];
-            header('Location: index.php?page=register');
+            app_redirect('index.php?page=register');
         } else {
             // Create user profile in Firestore
             $profile_result = firestore_add('users', [
                 'email'      => $email,
-                'role'       => 'user',
-                'created_at' => date('Y-m-d\TH:i:s\Z'),
+                'isAdmin'    => false,
+                'name'       => explode('@', $email)[0],
+                'createdAt'  => ['timestamp_utc' => date('Y-m-d\TH:i:s\Z')],
                 'phone'      => '',
                 'address'    => ''
             ]);
             
             $_SESSION['flash_msg'] = 'Registered successfully! You can now login.';
-            header('Location: index.php?page=login');
+            app_redirect('index.php?page=login');
         }
-        exit;
     }
 
     // Login User (Firebase Auth REST)
@@ -64,7 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         if (isset($res['error'])) {
             $_SESSION['flash_err'] = 'Login failed: ' . $res['message'];
-            header('Location: index.php?page=login');
+            app_redirect('index.php?page=login');
         } else {
             // Fetch extra profile data from Firestore
             $profile = firestore_get('users', $res['localId']);
@@ -75,9 +71,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'phone'    => $profile['phone'] ?? '',
                 'address'  => $profile['address'] ?? ''
             ];
-            header('Location: index.php');
+            app_redirect('index.php');
         }
-        exit;
     }
 
     // Admin Login (Firebase Auth REST + Role check)
@@ -93,23 +88,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         if (isset($res['error'])) {
             $_SESSION['flash_err'] = 'Admin Login failed: ' . $res['message'];
-            header('Location: index.php?page=admin_login');
+            app_redirect('index.php?page=admin_login');
         } else {
             // Verify if user info exists and role is admin in Firestore
             $profile = firestore_get('users', $res['localId']);
-            if (is_array($profile) && isset($profile['role']) && $profile['role'] === 'admin') {
+            if (is_array($profile) && isset($profile['isAdmin']) && $profile['isAdmin'] === true) {
                 $_SESSION['admin'] = [
                     'id'       => $res['localId'],
                     'username' => $res['email'],
                     'idToken'  => $res['idToken']
                 ];
-                header('Location: index.php?page=index_admin');
+                app_redirect('index.php?page=index_admin');
             } else {
-                $_SESSION['flash_err'] = 'Unauthorized: Admin role required.';
-                header('Location: index.php?page=admin_login');
+                $_SESSION['flash_err'] = 'Unauthorized: Admin privileges required.';
+                app_redirect('index.php?page=admin_login');
             }
         }
-        exit;
     }
 
     // Add to Cart
@@ -127,22 +121,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ];
             }
         }
-        header('Location: index.php?page=cart'); exit;
+        app_redirect('index.php?page=cart');
     }
 
     // Checkout
     if ($act === 'checkout') {
-        if (!isset($_SESSION['user'])) { header('Location: index.php?page=login'); exit; }
+        if (!isset($_SESSION['user'])) { app_redirect('index.php?page=login'); }
         $u = $_SESSION['user'];
         $total = 0; foreach ($_SESSION['cart'] as $it) $total += $it['price'] * $it['qty'];
         
         $orderData = [
-            'user_id' => $u['id'], 'user_name' => $u['username'], 'total' => $total,
-            'status' => 'Placed', 'created_at' => date('Y-m-d\TH:i:s\Z'), 'items' => $_SESSION['cart']
+            'userId' => $u['id'], 
+            'totalAmount' => (float)$total,
+            'paymentMethod' => $_POST['payment'] ?? 'COD',
+            'status' => 'Placed',
+            'createdAt' => ['timestamp_utc' => date('Y-m-d\TH:i:s\Z')],
+            'address' => $u['address'] ?? '',
+            'items' => $_SESSION['cart']
         ];
         firestore_add('orders', $orderData);
         $_SESSION['cart'] = [];
-        header('Location: index.php?page=user_orders&ok=1'); exit;
+        app_redirect('index.php?page=user_orders&ok=1');
     }
 }
 
@@ -168,4 +167,10 @@ if (!empty($_SESSION['flash_err'])) { echo '<div class="alert alert-danger">'.$_
 
 include "{$page}.php";
 include 'footer.php';
+
+// Safe shutdown stateless cookie injection
+if (!headers_sent()) {
+    setcookie('app_sess', base64_encode(json_encode($_SESSION ?? [])), time() + 86400 * 7, '/');
+}
+ob_end_flush();
 ?>

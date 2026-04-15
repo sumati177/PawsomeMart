@@ -34,11 +34,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['act']) && $_POST['act
         ?>
         <tr>
           <td><?php echo htmlspecialchars($id); ?></td>
-          <td><?php echo htmlspecialchars($o['user_name'] ?? 'User'); ?></td>
+          <td><?php echo htmlspecialchars($o['userId'] ?? 'Unknown User'); ?></td>
           <td><span class="<?php echo 'badge-status '.(strtolower($o['status'])==='delivered'?'badge-delivered':(strtolower($o['status'])==='processing'?'badge-processing':(strtolower($o['status'])==='shipped'?'badge-shipped':(strtolower($o['status'])==='cancelled'?'badge-cancelled':'badge-placed')))); ?>"><?php echo htmlspecialchars($o['status']); ?></span></td>
-          <td>₹<?php echo number_format($o['total'],2); ?></td>
-          <td><?php echo htmlspecialchars($o['payment_method'] ?? 'N/A'); ?></td>
-          <td class="small"><?php echo nl2br(htmlspecialchars($o['address_snapshot'] ?? '')); ?></td>
+          <td>₹<?php echo number_format((float)($o['totalAmount'] ?? $o['total'] ?? 0), 2); ?></td>
+          <td><?php echo htmlspecialchars($o['paymentMethod'] ?? $o['payment_method'] ?? 'N/A'); ?></td>
+          <td class="small"><?php echo nl2br(htmlspecialchars($o['address'] ?? $o['address_snapshot'] ?? '')); ?></td>
           <td><?php 
             if (isset($o['items']) && is_array($o['items'])) {
               foreach($o['items'] as $item){ 

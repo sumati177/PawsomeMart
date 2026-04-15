@@ -3,8 +3,7 @@ require_once('config.php');
 
 // --- ACCESS CONTROL ---
 if (!is_admin()) {
-    header('Location: index.php?page=admin_login');
-    exit;
+    app_redirect('index.php?page=admin_login');
 }
 
 // --- SERVER-SIDE OPERATIONS ---

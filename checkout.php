@@ -1,8 +1,8 @@
 <?php
-if(!is_user()){ header('Location:index.php?page=login'); exit; }
-if(empty($_SESSION['cart'])){ header('Location:index.php?page=cart'); exit; }
+if(!is_user()){ app_redirect('index.php?page=login'); }
+if(empty($_SESSION['cart'])){ app_redirect('index.php?page=cart'); }
 $user=$_SESSION['user'];
-if(empty($user['address'])){ $_SESSION['flash_err']='Please add address before checkout'; header('Location:index.php?page=profile'); exit; }
+if(empty($user['address'])){ $_SESSION['flash_err']='Please add address before checkout'; app_redirect('index.php?page=profile'); }
 $total=0; foreach($_SESSION['cart'] as $it) $total += $it['price']*$it['qty'];
 ?>
 <div class="container">

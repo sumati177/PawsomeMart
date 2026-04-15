@@ -1,4 +1,3 @@
-<?php
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
     // Vercel Stateless Session Polyfill
@@ -7,9 +6,6 @@ if (session_status() === PHP_SESSION_NONE) {
         if (is_array($sess_data)) $_SESSION = $sess_data;
     }
 }
-register_shutdown_function(function() {
-    setcookie('app_sess', base64_encode(json_encode($_SESSION)), time() + 86400 * 7, '/');
-});
 
 // ============================================
 // � LOAD ENVIRONMENT VARIABLES
@@ -226,6 +222,17 @@ function firestore_encode_data($data)
         } elseif (is_string($value)) {
             $encoded[$key] = ['stringValue' => $value];
         } elseif (is_array($value)) {
+            
+            // Custom type handlers (e.g. Firestore Timestamp)
+            if (isset($value['timestampValue'])) {
+                $encoded[$key] = ['timestampValue' => $value['timestampValue']];
+                continue;
+            }
+            if (isset($value['timestamp_utc'])) {
+                $encoded[$key] = ['timestampValue' => $value['timestamp_utc']];
+                continue;
+            }
+
             // Check if it's a list or associative array
             $is_list = function_exists('array_is_list') ? array_is_list($value) : (array_keys($value) === range(0, count($value) - 1));
             
@@ -267,13 +274,21 @@ function firestore_decode_data($fields)
             $decoded[$key] = (int)$field['integerValue'];
         } elseif (isset($field['stringValue'])) {
             $decoded[$key] = $field['stringValue'];
-        } elseif (isset($field['arrayValue']['values'])) {
+        } elseif (isset($field['timestampValue'])) {
+            $decoded[$key] = $field['timestampValue'];
+        } elseif (isset($field['arrayValue'])) {
             $decoded[$key] = [];
-            foreach ($field['arrayValue']['values'] as $item) {
-                if (isset($item['mapValue']['fields'])) {
-                    $decoded[$key][] = firestore_decode_data($item['mapValue']['fields']);
-                } else {
-                    $decoded[$key][] = firestore_decode_data([$item]);
+            if (isset($field['arrayValue']['values'])) {
+                foreach ($field['arrayValue']['values'] as $item) {
+                    if (isset($item['mapValue']['fields'])) {
+                        $decoded[$key][] = firestore_decode_data($item['mapValue']['fields']);
+                    } else {
+                        // Extract primitive array items correctly without nesting
+                        $res = firestore_decode_data(['_temp' => $item]);
+                        if (isset($res['_temp'])) {
+                            $decoded[$key][] = $res['_temp'];
+                        }
+                    }
                 }
             }
         } elseif (isset($field['mapValue']['fields'])) {
@@ -330,6 +345,17 @@ function cloudinary_upload($file_path, $public_id = '')
 // ============================================
 
 /**
+ * Custom Session Saving Redirect
+ */
+function app_redirect($url) {
+    if (!headers_sent()) {
+        setcookie('app_sess', base64_encode(json_encode($_SESSION ?? [])), time() + 86400 * 7, '/');
+    }
+    header('Location: ' . $url);
+    exit;
+}
+
+/**
  * Check if user is logged in
  */
 function is_logged_in()
@@ -368,4 +394,3 @@ function get_current_admin()
 {
     return $_SESSION['admin'] ?? null;
 }
-?>

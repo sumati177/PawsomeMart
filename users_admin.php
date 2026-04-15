@@ -62,7 +62,7 @@ if ($all_users) {
               <td><?php echo htmlspecialchars($u['email'] ?? ''); ?></td>
               <td><?php echo htmlspecialchars($u['address'] ?? ''); ?></td>
               <td><?php echo htmlspecialchars($u['phone'] ?? ''); ?></td>
-              <td><?php echo htmlspecialchars($u['role'] ?? 'user'); ?></td>
+              <td><?php echo (isset($u['isAdmin']) && $u['isAdmin'] === true) ? 'Admin' : 'User'; ?></td>
               <td class="text-center">
                 <form method="post" action="index.php?page=users_admin"
                       onsubmit="return confirm('Are you sure you want to delete this user permanently?');">
