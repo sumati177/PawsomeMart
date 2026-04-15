@@ -348,7 +348,7 @@ function is_admin()
 /**
  * Get current user data
  */
-function get_current_user()
+function app_get_current_user()
 {
     return $_SESSION['user'] ?? null;
 }
