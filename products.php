@@ -49,23 +49,23 @@ if (isset($all_products) && is_array($all_products)) {
     <div class="col-md-6 col-lg-4">
       <div class="card h-100 border-0 shadow-soft product-card">
         <div class="position-relative overflow-hidden" style="border-radius: 12px 12px 0 0;">
-            <img src="<?php echo htmlspecialchars($firstImage); ?>" class="card-img-top product-img" alt="<?php echo htmlspecialchars($p['name']); ?>">
+            <img src="<?php echo htmlspecialchars($firstImage); ?>" class="card-img-top product-img" alt="<?php echo htmlspecialchars($p['name'] ?? 'Product'); ?>">
             <div class="position-absolute top-0 end-0 m-3">
-                <span class="badge rounded-pill blur-badge"><?php echo htmlspecialchars($p['category']); ?></span>
+                <span class="badge rounded-pill blur-badge"><?php echo htmlspecialchars($p['category'] ?? 'Uncategorized'); ?></span>
             </div>
         </div>
         <div class="card-body p-4 d-flex flex-column">
-          <h5 class="fw-bold mb-2"><?php echo htmlspecialchars($p['name']); ?></h5>
+          <h5 class="fw-bold mb-2"><?php echo htmlspecialchars($p['name'] ?? 'Unnamed Product'); ?></h5>
           <div class="d-flex justify-content-between align-items-center mb-3">
-              <div class="text-primary fw-bold fs-4">₹<?php echo number_format((float)$p['price'],2); ?></div>
-              <div class="badge-stock <?php echo $p['stock'] > 5 ? 'text-success' : 'text-danger'; ?>">
-                ● Stock: <?php echo (int)$p['stock']; ?>
+              <div class="text-primary fw-bold fs-4">₹<?php echo number_format((float)($p['price'] ?? 0), 2); ?></div>
+              <div class="badge-stock <?php echo (isset($p['stock']) && $p['stock'] > 5) ? 'text-success' : 'text-danger'; ?>">
+                ● Stock: <?php echo (int)($p['stock'] ?? 0); ?>
               </div>
           </div>
           
           <div class="mt-auto d-flex gap-2">
             <button class="btn btn-outline-pet w-100 quick-view-btn" 
-                data-product='<?php echo json_encode(['id'=>$prodId,'name'=>$p['name'],'price'=>number_format((float)$p['price'],2),'stock'=>(int)$p['stock'],'description'=>$p['description'],'first_image'=>$firstImage,'images'=>$imgs_all], JSON_HEX_APOS|JSON_HEX_QUOT|JSON_HEX_TAG); ?>'>
+                data-product='<?php echo json_encode(['id'=>$prodId,'name'=>($p['name']??''),'price'=>number_format((float)($p['price']??0),2),'stock'=>(int)($p['stock']??0),'description'=>($p['description']??''),'first_image'=>$firstImage,'images'=>$imgs_all], JSON_HEX_APOS|JSON_HEX_QUOT|JSON_HEX_TAG); ?>'>
                 Details
             </button>
             <form method="post" action="index.php?page=cart" class="w-100">
@@ -82,7 +82,58 @@ if (isset($all_products) && is_array($all_products)) {
   </div>
 </div>
 
-<!-- Modal logic remains the same (assumed to be in product.php or footer) -->
+<!-- Quick View Modal -->
+<div class="modal fade" id="quickViewModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header border-0 pb-0">
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-0">
+        <div class="row g-0">
+          <div class="col-md-6 bg-light d-flex align-items-center justify-content-center p-4">
+            <img id="qv-image" src="" alt="Product" class="img-fluid rounded shadow-sm">
+          </div>
+          <div class="col-md-6 p-4 d-flex flex-column">
+            <span id="qv-stock" class="badge w-auto mb-2" style="width:fit-content">Stock</span>
+            <h2 id="qv-name" class="fw-bold mb-3">Name</h2>
+            <h3 id="qv-price" class="text-primary mb-3">Price</h3>
+            <p id="qv-desc" class="text-muted flex-grow-1">Desc</p>
+            <form method="post" action="index.php?page=cart" class="mt-auto">
+                <input type="hidden" name="act" value="add_cart">
+                <input type="hidden" id="qv-id" name="id" value="">
+                <div class="d-flex gap-2">
+                    <input type="number" name="qty" class="form-control" value="1" min="1" style="width:80px">
+                    <button class="btn btn-pet flex-grow-1">Add to Cart</button>
+                </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const qvBtns = document.querySelectorAll('.quick-view-btn');
+    if (qvBtns.length > 0) {
+        const qvModal = new bootstrap.Modal(document.getElementById('quickViewModal'));
+        qvBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const p = JSON.parse(this.getAttribute('data-product'));
+                document.getElementById('qv-image').src = p.first_image;
+                document.getElementById('qv-name').textContent = p.name;
+                document.getElementById('qv-price').textContent = '₹' + p.price;
+                document.getElementById('qv-desc').textContent = p.description || 'No description available.';
+                document.getElementById('qv-stock').textContent = 'Stock: ' + p.stock;
+                document.getElementById('qv-stock').className = p.stock > 0 ? 'badge bg-success mb-2' : 'badge bg-danger mb-2';
+                document.getElementById('qv-id').value = p.id;
+                qvModal.show();
+            });
+        });
+    }
+});
+</script>
 
 <style>
 .shadow-soft { box-shadow: 0 10px 30px rgba(0,0,0,0.05); }

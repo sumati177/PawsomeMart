@@ -19,8 +19,7 @@ $total=0;
             <td><?php echo htmlspecialchars($it['name']); ?></td>
             <td>₹<?php echo number_format($it['price'],2); ?></td>
             <td style="max-width:120px">
-              <input type="number" class="form-control" name="qty[]" value="<?php echo $it['qty']; ?>" min="1" max="<?php echo $it['max']; ?>">
-              <input type="hidden" name="max[]" value="<?php echo $it['max']; ?>">
+              <input type="number" class="form-control" name="qty[]" value="<?php echo (int)$it['qty']; ?>" min="1">
             </td>
             <td>₹<?php echo number_format($sub,2); ?></td>
             <td>
