@@ -1,6 +1,10 @@
 <?php
 ob_start();
-require_once('config.php');
+require_once __DIR__ . '/config.php';
+
+if (!function_exists('firestore_get_all')) {
+    die("<h3>Vercel Cache Error</h3><p>Your web server loaded an old cached copy of the config file. Please wait a few more seconds for Vercel to finish building the latest commit and refresh this page!</p>");
+}
 
 // --- LOGOUT ACTIONS ---
 if (isset($_GET['action']) && $_GET['action'] === 'logout_user') { unset($_SESSION['user']); app_redirect('index.php'); }
