@@ -1,7 +1,15 @@
 <?php
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
+    // Vercel Stateless Session Polyfill
+    if (empty($_SESSION) && isset($_COOKIE['app_sess'])) {
+        $sess_data = json_decode(base64_decode($_COOKIE['app_sess']), true);
+        if (is_array($sess_data)) $_SESSION = $sess_data;
+    }
 }
+register_shutdown_function(function() {
+    setcookie('app_sess', base64_encode(json_encode($_SESSION)), time() + 86400 * 7, '/');
+});
 
 // ============================================
 // � LOAD ENVIRONMENT VARIABLES

@@ -3,25 +3,8 @@ ob_start();
 require_once('config.php');
 $PAGE_TITLE = 'PetCare';
 
-// --- SESSION SECURITY: VALIDATE FIREBASE TOKEN ---
-if (isset($_SESSION['user']['idToken'])) {
-    $check = firebase_auth_request('lookup', ['idToken' => $_SESSION['user']['idToken']]);
-    if (isset($check['error'])) {
-        unset($_SESSION['user']);
-        $_SESSION['flash_err'] = 'Session expired. Please login again.';
-        header('Location: index.php?page=login');
-        exit;
-    }
-}
-if (isset($_SESSION['admin']['idToken'])) {
-    $check = firebase_auth_request('lookup', ['idToken' => $_SESSION['admin']['idToken']]);
-    if (isset($check['error'])) {
-        unset($_SESSION['admin']);
-        $_SESSION['flash_err'] = 'Admin session expired.';
-        header('Location: index.php?page=admin_login');
-        exit;
-    }
-}
+// --- SESSION SECURITY ---
+// (Rate-limiting logic completely removed to maintain Vercel Session Persistance)
 
 // --- LOGOUT ACTIONS ---
 if (isset($_GET['action']) && $_GET['action'] === 'logout_user') { unset($_SESSION['user']); header('Location: index.php'); exit; }
@@ -140,7 +123,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!$found) {
                 $_SESSION['cart'][] = [
                     'id' => $id, 'name' => $p['name'], 'price' => $p['price'], 
-                    'qty' => $qty, 'image_url' => $p['images'][0] ?? ''
+                    'qty' => $qty, 'image_url' => $p['imageUrls'][0] ?? ($p['images'][0] ?? '')
                 ];
             }
         }

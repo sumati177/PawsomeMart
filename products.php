@@ -9,7 +9,7 @@ if (isset($all_products) && is_array($all_products)) {
     $sorted_products = array_reverse($all_products, true);
     foreach ($sorted_products as $id => $p) {
         if (!is_array($p)) continue; // Skip corrupted or invalid nodes
-        if ($cat !== 'All' && (!isset($p['category']) || $p['category'] !== $cat)) continue;
+        if ($cat !== 'All' && (!isset($p['categoryId']) || $p['categoryId'] !== $cat) && (!isset($p['category']) || $p['category'] !== $cat)) continue;
         $p['id'] = $id;
         $prods[] = $p;
     }
@@ -40,10 +40,11 @@ if (isset($all_products) && is_array($all_products)) {
         </div>
     <?php else: foreach ($prods as $p): 
       $prodId = $p['id'];
-      $firstImage = (!empty($p['images']) && is_array($p['images'])) ? $p['images'][0] : $placeholder;
+      $firstImage = (!empty($p['imageUrls']) && is_array($p['imageUrls'])) ? $p['imageUrls'][0] : ((!empty($p['images']) && is_array($p['images'])) ? $p['images'][0] : $placeholder);
       $imgs_all = [];
-      if (!empty($p['images']) && is_array($p['images'])) {
-        foreach ($p['images'] as $idx => $url) { $imgs_all[] = ['id' => $idx, 'path' => $url]; }
+      $source_images = !empty($p['imageUrls']) && is_array($p['imageUrls']) ? $p['imageUrls'] : (!empty($p['images']) && is_array($p['images']) ? $p['images'] : []);
+      if (!empty($source_images)) {
+        foreach ($source_images as $idx => $url) { $imgs_all[] = ['id' => $idx, 'path' => $url]; }
       }
     ?>
     <div class="col-md-6 col-lg-4">
@@ -51,7 +52,7 @@ if (isset($all_products) && is_array($all_products)) {
         <div class="position-relative overflow-hidden" style="border-radius: 12px 12px 0 0;">
             <img src="<?php echo htmlspecialchars($firstImage); ?>" class="card-img-top product-img" alt="<?php echo htmlspecialchars($p['name'] ?? 'Product'); ?>">
             <div class="position-absolute top-0 end-0 m-3">
-                <span class="badge rounded-pill blur-badge"><?php echo htmlspecialchars($p['category'] ?? 'Uncategorized'); ?></span>
+                <span class="badge rounded-pill blur-badge"><?php echo htmlspecialchars($p['categoryId'] ?? ($p['category'] ?? 'Uncategorized')); ?></span>
             </div>
         </div>
         <div class="card-body p-4 d-flex flex-column">

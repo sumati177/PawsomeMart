@@ -19,24 +19,28 @@ if ($act === 'admin_product_save' && $_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $productData = [
         'name'        => trim($_POST['name'] ?? ''),
-        'category'    => trim($_POST['category'] ?? ''),
+        'categoryId'  => trim($_POST['category'] ?? ''),
         'price'       => (float)($_POST['price'] ?? 0),
         'stock'       => (int)($_POST['stock'] ?? 0),
         'description' => trim($_POST['description'] ?? ''),
-        'updated_at'  => $now
+        'updatedAt'   => $now
     ];
 
     $existingImages = [];
     if (!$is_new) {
         $existing = firestore_get('products', $id);
-        if ($existing && isset($existing['images']) && is_array($existing['images'])) {
+        if ($existing && isset($existing['imageUrls']) && is_array($existing['imageUrls'])) {
+            $existingImages = $existing['imageUrls'];
+        } elseif ($existing && isset($existing['images']) && is_array($existing['images'])) {
             $existingImages = $existing['images'];
         }
-        if ($existing && isset($existing['created_at'])) {
-            $productData['created_at'] = $existing['created_at'];
+        if ($existing && isset($existing['createdAt'])) {
+            $productData['createdAt'] = $existing['createdAt'];
+        } elseif ($existing && isset($existing['created_at'])) {
+            $productData['createdAt'] = $existing['created_at'];
         }
     } else {
-        $productData['created_at'] = $now;
+        $productData['createdAt'] = floor(microtime(true) * 1000); // 13 digit
     }
 
     // --- Handling Multi-Image Cloudinary Upload ---
@@ -71,7 +75,7 @@ if ($act === 'admin_product_save' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    $productData['images'] = $existingImages;
+    $productData['imageUrls'] = $existingImages;
 
     if ($is_new) {
         $add_result = firestore_add('products', $productData);
@@ -99,13 +103,16 @@ if ($act === 'delete_image' && isset($_GET['pid']) && isset($_GET['img_idx'])) {
     $idx     = (int)$_GET['img_idx'];
     $product = firestore_get('products', $pid);
     
-    if ($product && isset($product['images']) && is_array($product['images'])) {
-        array_splice($product['images'], $idx, 1);
-        firestore_update('products', $pid, [
-            'images'     => $product['images'],
-            'updated_at' => date('Y-m-d\TH:i:s\Z')
-        ]);
-        $_SESSION['flash_msg'] = 'Image reference removed.';
+    if ($product) {
+        $imgs = $product['imageUrls'] ?? ($product['images'] ?? []);
+        if (is_array($imgs)) {
+            array_splice($imgs, $idx, 1);
+            firestore_update('products', $pid, [
+                'imageUrls' => $imgs,
+                'updatedAt' => date('Y-m-d\TH:i:s\Z')
+            ]);
+            $_SESSION['flash_msg'] = 'Image reference removed.';
+        }
     }
     header('Location: index.php?page=products_admin');
     exit;
@@ -128,7 +135,8 @@ $prods = [];
 if (is_array($raw)) {
     foreach ($raw as $key => $p) {
         $p['id'] = $key;
-        $p['images'] = $p['images'] ?? [];
+        $p['imageUrls'] = $p['imageUrls'] ?? ($p['images'] ?? []);
+        $p['categoryId'] = $p['categoryId'] ?? ($p['category'] ?? '');
         $prods[] = $p;
     }
 }
@@ -214,7 +222,7 @@ unset($_SESSION['flash_msg'], $_SESSION['flash_err']);
                         <tr>
                             <td>
                                 <strong><?php echo htmlspecialchars($p['name']); ?></strong><br>
-                                <small class="text-muted"><?php echo htmlspecialchars($p['category']); ?></small>
+                                <small class="text-muted"><?php echo htmlspecialchars($p['categoryId']); ?></small>
                             </td>
                             <td>₹<?php echo number_format($p['price'], 2); ?></td>
                             <td><?php echo (int)$p['stock']; ?></td>
@@ -227,7 +235,7 @@ unset($_SESSION['flash_msg'], $_SESSION['flash_err']);
                             </td>
                             <td>
                                 <div class="d-flex gap-1 flex-wrap">
-                                    <?php foreach ($p['images'] as $idx => $url): ?>
+                                    <?php foreach ($p['imageUrls'] as $idx => $url): ?>
                                         <div class="position-relative">
                                             <img src="<?php echo $url; ?>" class="rounded border" style="width: 45px; height: 45px; object-fit: cover;">
                                             <a href="?page=products_admin&act=delete_image&pid=<?php echo $p['id']; ?>&img_idx=<?php echo $idx; ?>" 
@@ -254,14 +262,15 @@ unset($_SESSION['flash_msg'], $_SESSION['flash_err']);
 function editP(p) {
     document.getElementById('pid').value = p.id;
     document.getElementById('pname').value = p.name;
-    document.getElementById('pcat').value = p.category;
+    document.getElementById('pcat').value = p.categoryId || p.category || 'Food';
     document.getElementById('pprice').value = p.price;
     document.getElementById('pstock').value = p.stock;
     document.getElementById('pdesc').value = p.description || '';
     
     const pb = document.getElementById('preview-box'); pb.innerHTML = '';
-    if (p.images) {
-        p.images.forEach(url => {
+    const pImgs = p.imageUrls || p.images || false;
+    if (pImgs) {
+        pImgs.forEach(url => {
             const img = document.createElement('img');
             img.src = url; img.className = 'img-thumbnail';
             img.style = 'width: 70px; height: 70px; object-fit: cover;';
