@@ -1,0 +1,170 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+
+:root {
+  /* Modern HSL Palette - Emerald & Slate */
+  --pc-hue: 158;
+  --pc-bg: hsl(var(--pc-hue), 25%, 97%);
+  --pc-primary: hsl(var(--pc-hue), 42%, 48%);
+  --pc-primary-dark: hsl(var(--pc-hue), 42%, 35%);
+  --pc-accent: hsl(var(--pc-hue), 50%, 85%);
+  --pc-surface: hsla(0, 0%, 100%, 0.7);
+  --pc-text: hsl(var(--pc-hue), 25%, 15%);
+  --pc-text-muted: hsl(var(--pc-hue), 15%, 45%);
+  --pc-glass: hsla(0, 0%, 100%, 0.65);
+  --pc-border: hsla(var(--pc-hue), 20%, 80%, 0.3);
+  --pc-shadow: hsla(var(--pc-hue), 30%, 20%, 0.08);
+  --pc-shadow-hover: hsla(var(--pc-hue), 30%, 20%, 0.15);
+  --pc-radius: 16px;
+  --pc-transition: 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+* {
+  box-sizing: border-box;
+  transition: transform var(--pc-transition), 
+              box-shadow var(--pc-transition), 
+              background-color var(--pc-transition), 
+              opacity var(--pc-transition);
+}
+
+body {
+  background: var(--pc-bg);
+  background-image: radial-gradient(at 0% 0%, hsla(var(--pc-hue), 50%, 85%, 0.3) 0px, transparent 50%),
+                    radial-gradient(at 100% 100%, hsla(200, 50%, 85%, 0.3) 0px, transparent 50%);
+  color: var(--pc-text);
+  font-family: 'Outfit', sans-serif;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Glassmorphism Navbar */
+.navbar-pet {
+  background: var(--pc-glass) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--pc-border);
+  box-shadow: 0 4px 30px var(--pc-shadow);
+  z-index: 1030;
+}
+
+.navbar-pet .navbar-brand {
+  font-weight: 700;
+  color: var(--pc-primary) !important;
+  letter-spacing: -0.5px;
+  font-size: 1.5rem;
+}
+
+.navbar-pet .nav-link {
+  color: var(--pc-text) !important;
+  font-weight: 500;
+  opacity: 0.8;
+  padding: 0.5rem 1rem !important;
+}
+
+.navbar-pet .nav-link:hover {
+  opacity: 1;
+  color: var(--pc-primary) !important;
+}
+
+/* Premium Components */
+.card {
+  background: var(--pc-glass);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--pc-border);
+  border-radius: var(--pc-radius);
+  box-shadow: 0 8px 32px var(--pc-shadow);
+  overflow: hidden;
+}
+
+.card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 12px 40px var(--pc-shadow-hover);
+}
+
+.card-header-pet {
+  background: hsla(var(--pc-hue), 40%, 90%, 0.5);
+  border-bottom: 1px solid var(--pc-border);
+  font-weight: 600;
+  padding: 1rem 1.5rem;
+}
+
+/* Modern Buttons */
+.btn-pet {
+  background: var(--pc-primary);
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  box-shadow: 0 4px 12px hsla(var(--pc-hue), 40%, 40%, 0.2);
+}
+
+.btn-pet:hover {
+  background: var(--pc-primary-dark);
+  transform: scale(1.02);
+  color: #fff;
+}
+
+.btn-outline-pet {
+  border: 2px solid var(--pc-primary);
+  color: var(--pc-primary);
+  border-radius: 12px;
+  padding: 0.65rem 1.4rem;
+  font-weight: 600;
+}
+
+.btn-outline-pet:hover {
+  background: var(--pc-primary);
+  color: #fff;
+  transform: scale(1.02);
+}
+
+/* Product UI */
+.product-img {
+  object-fit: cover;
+  height: 250px;
+  transition: transform 0.5s ease;
+}
+
+.card:hover .product-img {
+  transform: scale(1.05);
+}
+
+/* Forms & Inputs */
+.form-control, .form-select {
+  border-radius: 12px;
+  border: 1px solid hsla(var(--pc-hue), 20%, 80%, 0.5);
+  background: rgba(255, 255, 255, 0.5);
+  padding: 0.75rem 1rem;
+}
+
+.form-control:focus {
+  background: #fff;
+  border-color: var(--pc-primary);
+  box-shadow: 0 0 0 4px hsla(var(--pc-hue), 42%, 48%, 0.15);
+}
+
+/* Auth Pages Layer */
+.container-auth {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 100px);
+}
+
+/* Custom Skeleton/Loading state (Placeholder for hydration) */
+.loading-skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Responsive Overrides */
+@media (max-width: 768px) {
+  .navbar-pet { padding: 0.8rem 0; }
+  .card-header-pet { padding: 0.75rem 1rem; }
+}

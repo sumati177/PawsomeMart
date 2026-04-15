@@ -1,0 +1,39 @@
+# Environment Variables
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+firebase_log.txt
+post_cookie.txt
+post_test_response.txt
+test_output.txt
+
+# Testing
+test_*.php
+debug_*.php
+temp_*.php
+
+# Uploads
+uploads/
+!uploads/.gitkeep
+
+# Node modules (if using npm)
+node_modules/
+package-lock.json
+
+# Composer
+vendor/
+composer.lock
