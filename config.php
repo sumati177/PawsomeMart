@@ -1,3 +1,4 @@
+<?php
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
     // Vercel Stateless Session Polyfill
@@ -394,3 +395,4 @@ function get_current_admin()
 {
     return $_SESSION['admin'] ?? null;
 }
+?>
