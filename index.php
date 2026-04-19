@@ -26,6 +26,15 @@ if (isset($_GET['page']) && $_GET['page'] === 'cart' && isset($_GET['remove'])) 
     app_redirect('index.php?page=cart');
 }
 
+if (isset($_GET['action']) && $_GET['action'] === 'clear_cart_after_order') {
+    $_SESSION['cart'] = [];
+    if (is_logged_in()) {
+        firestore_update('users', $_SESSION['user']['id'], ['cart' => []]);
+    }
+    $_SESSION['flash_msg'] = 'Order placed successfully!';
+    app_redirect('index.php?page=user_orders&ok=1');
+}
+
 // --- POST ACTIONS ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $act = $_POST['act'] ?? '';
@@ -221,12 +230,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         app_redirect('index.php?page=cart');
     }
 
-    // Checkout
+    // Checkout/Place Order
     if ($act === 'checkout') {
-        if (!isset($_SESSION['user'])) { app_redirect('index.php?page=login'); }
+        if (!is_logged_in()) { app_redirect('index.php?page=login'); }
+        if (empty($_SESSION['cart'])) { app_redirect('index.php?page=cart'); }
+        
         $u = $_SESSION['user'];
 
-        // Always fetch freshest address from Firestore (because profile may have been updated)
+        // Fresh address check
         $fresh = firestore_get('users', $u['id']);
         if ($fresh && !isset($fresh['error'])) {
             $_SESSION['user']['address'] = $fresh['address'] ?? '';
@@ -234,56 +245,80 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $u = $_SESSION['user'];
         }
 
-        if (empty($u['address'])) {
-            $_SESSION['flash_err'] = 'Please add a delivery address before checkout.';
-            app_redirect('index.php?page=profile');
+        if (empty($u['address']) || empty($u['phone'])) {
+            $_SESSION['flash_err'] = 'Please complete your address and phone details before placing an order.';
+            app_redirect('index.php?page=checkout');
         }
 
-        // --- Stock validation ---
+        // --- Step 1: Strict Stock Validation ---
         $stock_errors = [];
-        $stock_map = []; // product_id => current_stock
+        $validated_items = [];
+        $total = 0;
+
         foreach ($_SESSION['cart'] as $it) {
             $prod = firestore_get('products', $it['id']);
-            if (!$prod || isset($prod['error'])) { continue; }
-            $avail = (int)($prod['stock'] ?? 999);
-            $stock_map[$it['id']] = $avail;
+            if (!$prod || isset($prod['error'])) {
+                $stock_errors[] = "Product " . htmlspecialchars($it['name']) . " no longer exists.";
+                continue;
+            }
+            $avail = (int)($prod['stock'] ?? 0);
             if ((int)$it['qty'] > $avail) {
-                $stock_errors[] = htmlspecialchars($it['name']) . ' (only ' . $avail . ' in stock)';
+                $stock_errors[] = htmlspecialchars($it['name']) . " (Only $avail left)";
+            } else {
+                // Prepare item with correct schema for order
+                $validated_items[] = [
+                    'productId' => $it['id'],
+                    'name'      => $it['name'],
+                    'price'     => (float)$it['price'],
+                    'quantity'  => (int)$it['qty'],
+                    'image'     => $it['image_url'] ?? ''
+                ];
+                $total += (float)$it['price'] * (int)$it['qty'];
             }
         }
+
         if (!empty($stock_errors)) {
-            $_SESSION['flash_err'] = 'Stock limit exceeded for: ' . implode(', ', $stock_errors);
+            $_SESSION['flash_err'] = 'Stock issue: ' . implode(', ', $stock_errors);
             app_redirect('index.php?page=cart');
         }
 
-        // --- Place order ---
-        $total = 0;
-        foreach ($_SESSION['cart'] as $it) $total += $it['price'] * $it['qty'];
-
+        // --- Step 2: Create Order Document ---
         $orderData = [
             'userId'        => $u['id'],
+            'userEmail'     => $u['username'], // Helper for admin
+            'items'         => $validated_items,
             'totalAmount'   => (float)$total,
-            'paymentMethod' => $_POST['payment'] ?? 'COD',
-            'status'        => 'Placed',
-            'createdAt'     => ['timestamp_utc' => date('Y-m-d\TH:i:s\Z')],
-            'address'       => $u['address'] ?? '',
-            'items'         => $_SESSION['cart']
+            'address'       => $u['address'],
+            'phone'         => $u['phone'],
+            'status'        => 'pending',
+            'createdAt'     => date('Y-m-d\TH:i:s\Z')
         ];
-        $order_result = firestore_add('orders', $orderData);
 
-        // Decrement stock for each ordered item
-        foreach ($_SESSION['cart'] as $it) {
-            $pid = $it['id'];
-            if (isset($stock_map[$pid])) {
-                $new_stock = max(0, $stock_map[$pid] - (int)$it['qty']);
-                firestore_update('products', $pid, ['stock' => $new_stock]);
+        $order_res = firestore_add('orders', $orderData);
+
+        if (isset($order_res['id'])) {
+            // Update the order with its own ID (optional but good for consistency)
+            firestore_update('orders', $order_res['id'], ['orderId' => $order_res['id']]);
+
+            // --- Step 3: Atomic Stock Deduction ---
+            foreach ($validated_items as $vi) {
+                firestore_increment('products', $vi['productId'], 'stock', -($vi['quantity']));
             }
-        }
 
-        $_SESSION['cart'] = [];
-        firestore_update('users', $u['id'], ['cart' => []]);
-        app_redirect('index.php?page=user_orders&ok=1');
+            // --- Step 4: Clear Cart ---
+            $_SESSION['cart'] = [];
+            if (is_logged_in()) {
+                firestore_update('users', $u['id'], ['cart' => []]);
+            }
+            
+            $_SESSION['flash_msg'] = 'Order placed successfully!';
+            app_redirect('index.php?page=user_orders&ok=1');
+        } else {
+            $_SESSION['flash_err'] = 'Critical: Failed to save order. Please try again.';
+            app_redirect('index.php?page=checkout');
+        }
     }
+
 }
 
 // --- ROUTING & GLOBAL DATA ---
@@ -293,7 +328,7 @@ if (!in_array($page, $allowed)) $page = 'home';
 
 // Fetch global products for display templates
 $all_products = [];
-if (in_array($page, ['home', 'products', 'products_admin'])) {
+if (in_array($page, ['home', 'products', 'products_admin', 'cart'])) {
     $res = firestore_get_all('products');
     if (is_array($res) && !isset($res['error'])) {
         $all_products = $res;

@@ -13,13 +13,26 @@ $total=0;
       <table class="table align-middle">
         <thead><tr><th>#</th><th>Product</th><th>Price</th><th>Qty</th><th>Subtotal</th><th></th></tr></thead>
         <tbody>
-          <?php foreach($_SESSION['cart'] as $i=>$it): $sub=$it['price']*$it['qty']; $total+=$sub; ?>
+          <?php 
+          foreach($_SESSION['cart'] as $i=>$it): 
+            $sub = $it['price'] * $it['qty']; 
+            $total += $sub; 
+            
+            $pid = $it['id'];
+            $stock = 999;
+            if (isset($all_products[$pid])) {
+                $stock = (int)($all_products[$pid]['stock'] ?? 0);
+            }
+          ?>
           <tr>
             <td><?php echo $i+1; ?></td>
             <td><?php echo htmlspecialchars($it['name']); ?></td>
             <td>₹<?php echo number_format($it['price'],2); ?></td>
             <td style="max-width:120px">
-              <input type="number" class="form-control" name="qty[]" value="<?php echo (int)$it['qty']; ?>" min="1">
+              <input type="number" class="form-control" name="qty[]" value="<?php echo min((int)$it['qty'], $stock); ?>" min="1" max="<?php echo $stock; ?>">
+              <?php if ((int)$it['qty'] >= $stock): ?>
+                <div class="text-danger mt-1" style="font-size:0.75rem;">Only <?php echo $stock; ?> items left</div>
+              <?php endif; ?>
             </td>
             <td>₹<?php echo number_format($sub,2); ?></td>
             <td>

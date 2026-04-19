@@ -245,6 +245,44 @@ function firestore_update($collection, $docId, $data)
 }
 
 /**
+ * Increment or decrement a numeric field atomically in Firestore
+ */
+function firestore_increment($collection, $docId, $field, $value)
+{
+    $url = 'https://firestore.googleapis.com/v1/projects/' . FIREBASE_PROJECT_ID . '/databases/(default)/documents:commit';
+    $path = 'projects/' . FIREBASE_PROJECT_ID . '/databases/(default)/documents/' . $collection . '/' . $docId;
+    
+    $payload = [
+        'writes' => [
+            [
+                'transform' => [
+                    'document' => $path,
+                    'fieldTransforms' => [
+                        [
+                            'fieldPath' => $field,
+                            'increment' => ['doubleValue' => (float)$value]
+                        ]
+                    ]
+                ]
+            ]
+        ]
+    ];
+    
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
+    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    
+    return $httpCode < 400 ? ['success' => true] : ['error' => true, 'message' => 'Increment failed'];
+}
+
+/**
  * Delete a document from Firestore
  */
 function firestore_delete($collection, $docId)
@@ -254,6 +292,7 @@ function firestore_delete($collection, $docId)
     
     return isset($result['error']) ? $result : ['success' => true];
 }
+
 
 /**
  * Encode PHP data to Firestore format

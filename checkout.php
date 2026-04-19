@@ -46,8 +46,7 @@ foreach ($_SESSION['cart'] as $it) $total += $it['price'] * $it['qty'];
       <div class="card shadow-sm">
         <div class="card-header card-header-pet fw-bold">💳 Payment Method</div>
         <div class="card-body">
-          <form method="post" action="index.php?page=checkout&action=place">
-            <input type="hidden" name="act" value="checkout">
+          <form id="checkoutForm">
             <div class="form-check mb-2">
               <input class="form-check-input" type="radio" name="payment" id="cod" value="COD" checked>
               <label class="form-check-label" for="cod">💵 Cash on Delivery</label>
@@ -56,7 +55,7 @@ foreach ($_SESSION['cart'] as $it) $total += $it['price'] * $it['qty'];
               <input class="form-check-input" type="radio" name="payment" id="upi" value="UPI">
               <label class="form-check-label" for="upi">📱 UPI (Demo)</label>
             </div>
-            <button class="btn btn-pet w-100 mt-2">✅ Place Order</button>
+            <button type="submit" id="placeOrderBtn" class="btn btn-pet w-100 mt-2">✅ Place Order</button>
           </form>
         </div>
       </div>
@@ -93,3 +92,49 @@ foreach ($_SESSION['cart'] as $it) $total += $it['price'] * $it['qty'];
 
   <?php endif; ?>
 </div>
+
+<?php if (!empty($user['address']) && !empty($user['phone'])): ?>
+<script type="module">
+  import { orderService } from './js/orderService.js';
+  
+  const checkoutForm = document.getElementById('checkoutForm');
+  const placeOrderBtn = document.getElementById('placeOrderBtn');
+  
+  if (checkoutForm) {
+      checkoutForm.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          placeOrderBtn.disabled = true;
+          placeOrderBtn.innerHTML = '⏳ Processing Transaction...';
+          
+          const userId = <?php echo json_encode($user['id']); ?>;
+          const userEmail = <?php echo json_encode($user['username'] ?? ''); ?>;
+          const address = <?php echo json_encode($user['address']); ?>;
+          const phone = <?php echo json_encode($user['phone']); ?>;
+          const totalAmount = <?php echo $total; ?>;
+          
+          const items = <?php 
+            $jsItems = array_map(function($it) {
+                return [
+                    'productId' => $it['id'],
+                    'name' => $it['name'],
+                    'price' => (float)$it['price'],
+                    'quantity' => (int)$it['qty'],
+                    'image' => $it['image_url'] ?? ''
+                ];
+            }, $_SESSION['cart']);
+            echo json_encode(array_values($jsItems));
+          ?>;
+
+          const res = await orderService.placeOrder(userId, userEmail, items, totalAmount, address, phone);
+          
+          if(res.success) {
+              window.location.href = 'index.php?page=checkout&action=clear_cart_after_order';
+          } else {
+              alert('Checkout Failed: ' + res.error);
+              placeOrderBtn.disabled = false;
+              placeOrderBtn.innerHTML = '✅ Place Order';
+          }
+      });
+  }
+</script>
+<?php endif; ?>
