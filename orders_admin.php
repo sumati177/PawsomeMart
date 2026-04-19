@@ -12,7 +12,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['act']) && $_POST['act
     if ($order_id && $new_status) {
         firestore_update('orders', $order_id, [
             'status' => $new_status,
-            'updated_at' => date('Y-m-d\TH:i:s\Z')
+            'updatedAt' => date('Y-m-d\TH:i:s\Z')
         ]);
         $_SESSION['flash_msg'] = 'Order status updated successfully.';
         header('Location: index.php?page=orders_admin');
@@ -29,12 +29,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['act']) && $_POST['act
       <tbody>
         <?php 
         $all_orders = firestore_get_all('orders');
+        $all_users = firestore_get_all('users');
+        $user_map = [];
+        if ($all_users) {
+            foreach ($all_users as $uid => $u) {
+                $user_map[$uid] = $u['email'] ?? $u['name'] ?? $uid;
+            }
+        }
         if ($all_orders) {
           foreach($all_orders as $id => $o): 
+            $display_user = $user_map[$o['userId'] ?? $o['user_id'] ?? ''] ?? $o['userId'] ?? $o['user_id'] ?? 'Unknown User';
         ?>
         <tr>
           <td><?php echo htmlspecialchars($id); ?></td>
-          <td><?php echo htmlspecialchars($o['userId'] ?? 'Unknown User'); ?></td>
+          <td><?php echo htmlspecialchars($display_user); ?></td>
           <td><span class="<?php echo 'badge-status '.(strtolower($o['status'])==='delivered'?'badge-delivered':(strtolower($o['status'])==='processing'?'badge-processing':(strtolower($o['status'])==='shipped'?'badge-shipped':(strtolower($o['status'])==='cancelled'?'badge-cancelled':'badge-placed')))); ?>"><?php echo htmlspecialchars($o['status']); ?></span></td>
           <td>₹<?php echo number_format((float)($o['totalAmount'] ?? $o['total'] ?? 0), 2); ?></td>
           <td><?php echo htmlspecialchars($o['paymentMethod'] ?? $o['payment_method'] ?? 'N/A'); ?></td>

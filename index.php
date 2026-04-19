@@ -7,13 +7,22 @@ if (!function_exists('firestore_get_all')) {
 }
 
 // --- LOGOUT ACTIONS ---
-if (isset($_GET['action']) && $_GET['action'] === 'logout_user') { unset($_SESSION['user']); app_redirect('index.php'); }
+if (isset($_GET['action']) && $_GET['action'] === 'logout_user') { 
+    unset($_SESSION['user']); 
+    $_SESSION['cart'] = []; 
+    app_redirect('index.php'); 
+}
 if (isset($_GET['action']) && $_GET['action'] === 'logout_admin') { unset($_SESSION['admin']); app_redirect('index.php'); }
 
 // --- CART REMOVAL ---
 if (isset($_GET['page']) && $_GET['page'] === 'cart' && isset($_GET['remove'])) {
     $i = (int)$_GET['remove'];
-    if (isset($_SESSION['cart'][$i])) array_splice($_SESSION['cart'], $i, 1);
+    if (isset($_SESSION['cart'][$i])) {
+        array_splice($_SESSION['cart'], $i, 1);
+        if (is_logged_in()) {
+            firestore_update('users', $_SESSION['user']['id'], ['cart' => $_SESSION['cart']]);
+        }
+    }
     app_redirect('index.php?page=cart');
 }
 
@@ -75,6 +84,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'phone'    => $profile['phone'] ?? '',
                 'address'  => $profile['address'] ?? ''
             ];
+            
+            // Sync cart with Firestore
+            $db_cart = $profile['cart'] ?? [];
+            if (!empty($_SESSION['cart'])) {
+                // If local cart has items, overwrite the DB cart
+                firestore_update('users', $res['localId'], ['cart' => $_SESSION['cart']]);
+            } else if (!empty($db_cart)) {
+                // If local cart is empty but DB has cart, use DB cart
+                $_SESSION['cart'] = $db_cart;
+            }
+            
             app_redirect('index.php');
         }
     }
@@ -124,6 +144,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'qty' => $qty, 'image_url' => $p['imageUrls'][0] ?? ($p['images'][0] ?? '')
                 ];
             }
+            if (is_logged_in()) {
+                firestore_update('users', $_SESSION['user']['id'], ['cart' => $_SESSION['cart']]);
+            }
+        }
+        app_redirect('index.php?page=cart');
+    }
+
+    // Update Cart Quantities
+    if ($act === 'cart_update') {
+        if (isset($_POST['qty']) && is_array($_POST['qty'])) {
+            foreach ($_POST['qty'] as $i => $q) {
+                if (isset($_SESSION['cart'][$i])) {
+                    $qty = max(1, (int)$q);
+                    $_SESSION['cart'][$i]['qty'] = $qty;
+                }
+            }
+            if (is_logged_in()) {
+                firestore_update('users', $_SESSION['user']['id'], ['cart' => $_SESSION['cart']]);
+            }
         }
         app_redirect('index.php?page=cart');
     }
@@ -145,6 +184,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ];
         firestore_add('orders', $orderData);
         $_SESSION['cart'] = [];
+        firestore_update('users', $u['id'], ['cart' => []]);
         app_redirect('index.php?page=user_orders&ok=1');
     }
 }

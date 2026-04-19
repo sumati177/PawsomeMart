@@ -10,8 +10,12 @@ if (!is_admin()) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['act']) && $_POST['act'] === 'admin_delete_user') {
     $uid = $_POST['id'] ?? '';
     if ($uid) {
-        firestore_delete('users', $uid);
-        $_SESSION['flash_msg'] = 'User deleted successfully.';
+        if (isset($_SESSION['admin']['id']) && $uid === $_SESSION['admin']['id']) {
+            $_SESSION['flash_err'] = 'You cannot delete your own admin account.';
+        } else {
+            firestore_delete('users', $uid);
+            $_SESSION['flash_msg'] = 'User deleted successfully.';
+        }
         header('Location: index.php?page=users_admin');
         exit;
     }
@@ -64,12 +68,16 @@ if ($all_users) {
               <td><?php echo htmlspecialchars($u['phone'] ?? ''); ?></td>
               <td><?php echo (isset($u['isAdmin']) && $u['isAdmin'] === true) ? 'Admin' : 'User'; ?></td>
               <td class="text-center">
-                <form method="post" action="index.php?page=users_admin"
-                      onsubmit="return confirm('Are you sure you want to delete this user permanently?');">
-                  <input type="hidden" name="act" value="admin_delete_user">
-                  <input type="hidden" name="id" value="<?php echo htmlspecialchars($u['id']); ?>">
-                  <button type="submit" class="btn btn-sm btn-danger">Delete</button>
-                </form>
+                <?php if (isset($_SESSION['admin']['id']) && $u['id'] === $_SESSION['admin']['id']): ?>
+                  <button type="button" class="btn btn-sm btn-secondary" disabled title="You cannot delete yourself">Delete</button>
+                <?php else: ?>
+                  <form method="post" action="index.php?page=users_admin"
+                        onsubmit="return confirm('Are you sure you want to delete this user permanently?');">
+                    <input type="hidden" name="act" value="admin_delete_user">
+                    <input type="hidden" name="id" value="<?php echo htmlspecialchars($u['id']); ?>">
+                    <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                  </form>
+                <?php endif; ?>
               </td>
             </tr>
           <?php endforeach; ?>
