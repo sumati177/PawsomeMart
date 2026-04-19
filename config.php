@@ -2,7 +2,7 @@
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
     // Vercel Stateless Session Polyfill
-    if (empty($_SESSION) && isset($_COOKIE['app_sess'])) {
+    if (isset($_COOKIE['app_sess'])) {
         $decoded = base64_decode($_COOKIE['app_sess']);
         $uncompressed = @gzuncompress($decoded);
         $sess_data = json_decode($uncompressed ?: $decoded, true); // Fallback to uncompressed if legacy
@@ -168,7 +168,7 @@ function firestore_get($collection, $docId)
  */
 function firestore_get_all($collection)
 {
-    $path = '/' . $collection . '?pageSize=1000';
+    $path = '/' . $collection . '?pageSize=300';
     $result = firestore_request('GET', $path);
     
     $documents = [];
@@ -189,7 +189,11 @@ function firestore_get_all($collection)
  */
 function firestore_update($collection, $docId, $data)
 {
-    $path = '/' . $collection . '/' . $docId;
+    $qs = [];
+    foreach (array_keys($data) as $k) {
+        $qs[] = 'updateMask.fieldPaths=' . urlencode($k);
+    }
+    $path = '/' . $collection . '/' . $docId . '?' . implode('&', $qs);
     $payload = ['fields' => firestore_encode_data($data)];
     $result = firestore_request('PATCH', $path, $payload);
     
