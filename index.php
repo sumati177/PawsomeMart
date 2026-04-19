@@ -10,10 +10,16 @@ if (!function_exists('firestore_get_all')) {
 if (isset($_GET['action']) && $_GET['action'] === 'logout_user') { 
     unset($_SESSION['user']); 
     unset($_SESSION['user_creds']);
+    unset($_SESSION['user_id_token']);
     $_SESSION['cart'] = []; 
     app_redirect('index.php'); 
 }
-if (isset($_GET['action']) && $_GET['action'] === 'logout_admin') { unset($_SESSION['admin']); unset($_SESSION['admin_creds']); app_redirect('index.php'); }
+if (isset($_GET['action']) && $_GET['action'] === 'logout_admin') { 
+    unset($_SESSION['admin']); 
+    unset($_SESSION['admin_creds']); 
+    unset($_SESSION['user_id_token']);
+    app_redirect('index.php'); 
+}
 
 // --- CART REMOVAL ---
 if (isset($_GET['page']) && $_GET['page'] === 'cart' && isset($_GET['remove'])) {
@@ -121,6 +127,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Store credentials for client-side Firebase Auth sign-in
             // Required so JS SDK can authenticate for Firestore security rules
             $_SESSION['user_creds'] = ['email' => $email, 'password' => $pass];
+            $_SESSION['user_id_token'] = $res['idToken'] ?? null;
             
             // Sync cart with Firestore
             $db_cart = $profile['cart'] ?? [];
@@ -158,6 +165,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ];
                 // Store admin credentials for client-side Firebase Auth
                 $_SESSION['admin_creds'] = ['email' => $email, 'password' => $pass];
+                $_SESSION['user_id_token'] = $res['idToken'] ?? null;
                 app_redirect('index.php?page=index_admin');
             } else {
                 $_SESSION['flash_err'] = 'Unauthorized: Admin privileges required.';

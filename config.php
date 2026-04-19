@@ -102,7 +102,11 @@ function firestore_request($method, $path, $data = null)
     curl_setopt($ch, CURLOPT_URL, $url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+    $headers = ['Content-Type: application/json'];
+    if (isset($_SESSION['user_id_token']) && !empty($_SESSION['user_id_token'])) {
+        $headers[] = 'Authorization: Bearer ' . $_SESSION['user_id_token'];
+    }
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
     
     if ($data) {
