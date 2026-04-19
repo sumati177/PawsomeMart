@@ -19,37 +19,52 @@ if (!is_admin()) {
   
   function setLoading(isLoading) {
       if (isLoading) {
-          // Do nothing explicitly
+          container.innerHTML = `
+            <div class="text-center py-5">
+              <div class="spinner-border text-success" role="status">
+                <span class="visually-hidden">Loading...</span>
+              </div>
+              <p class="mt-2 text-muted">Synchronizing with central database...</p>
+            </div>
+          `;
       }
   }
 
   async function loadAdminOrders() {
       setLoading(true);
-      container.innerHTML = '<div class="alert alert-info">Loading orders...</div>';
-      
       try {
           const orders = await orderService.getAdminOrders();
           countSpan.textContent = orders.length + ' total';
           
-          let baseHtml = `<div style="background:#eee;padding:10px;margin-bottom:10px;border-radius:4px;"><p class="fw-bold m-0 text-dark">Total Orders: ${orders.length}</p><pre class="text-dark small m-0" style="max-height:200px;overflow:auto;">${JSON.stringify(orders, null, 2)}</pre></div>`;
+          let debugHtml = `
+            <div class="card border-0 bg-dark text-white mb-4 shadow-sm overflow-hidden">
+              <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <span class="fw-bold small">🛡️ CLUSTER DEBUG LOG</span>
+                  <span class="badge bg-secondary font-monospace" style="font-size:0.75rem;">Nodes: ${orders.length}</span>
+                </div>
+                <pre class="small text-info mb-0" style="max-height:120px; overflow:auto; background:rgba(0,0,0,0.5); padding:10px; border-radius:6px; font-family: 'Consolas', monospace;">${JSON.stringify(orders, null, 2)}</pre>
+              </div>
+            </div>
+          `;
 
           if (orders.length === 0) {
-              container.innerHTML = baseHtml + '<div class="alert alert-info">No orders found in the database.</div>';
+              container.innerHTML = debugHtml + '<div class="alert alert-warning border-0 shadow-sm">No orders recorded in the system logs.</div>';
               return;
           }
           
           let tableHtml = `
-      <div class="table-responsive">
-        <table class="table table-bordered align-middle">
-          <thead class="table-dark">
+      <div class="table-responsive card border-0 shadow-sm">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="bg-dark text-white">
             <tr>
-              <th style="min-width:120px;">Order ID/Date</th>
+              <th class="ps-3" style="min-width:140px;">Order ID/Date</th>
               <th>Customer</th>
-              <th>Status</th>
+              <th style="min-width:120px;">Status</th>
               <th>Total</th>
               <th>Address</th>
               <th>Items</th>
-              <th style="min-width:150px;">Update Status</th>
+              <th class="pe-3" style="min-width:160px;">Update Status</th>
             </tr>
           </thead>
           <tbody>
@@ -67,7 +82,7 @@ if (!is_admin()) {
           else if (status === 'cancelled') badgeClass = 'bg-danger';
           else if (status === 'pending') badgeClass = 'bg-primary';
           
-          const total = parseFloat(o.totalAmount || o.total || 0).toFixed(2);
+          const totalAmount = parseFloat(o.totalAmount || o.total || 0).toLocaleString(undefined, {minimumFractionDigits: 2});
           const address = o.address || 'N/A';
           const phone = o.phone || '';
           
@@ -76,13 +91,13 @@ if (!is_admin()) {
               o.items.forEach(item => {
                   const name = item.name || item.productName || 'Item';
                   const qty = parseInt(item.quantity || item.qty || 1);
-                  itemsHtml += `<div class="small">${name} &times; ${qty}</div>`;
+                  itemsHtml += `<div class="small fw-500">${name} <span class="text-muted">× ${qty}</span></div>`;
               });
           } else {
               itemsHtml = '<small class="text-muted">—</small>';
           }
           
-          let dateStr = o.createdAt || '';
+          let dateStr = 'N/A';
           if (o.createdAt && o.createdAt.toDate) {
               dateStr = o.createdAt.toDate().toLocaleString();
           } else if (typeof o.createdAt === 'string') {
@@ -98,18 +113,21 @@ if (!is_admin()) {
           });
 
           tableHtml += `
-            <tr>
-              <td>
-                <small class="text-muted d-block">${id.substring(0,10)}...</small>
+            <tr style="border-left: 4px solid ${badgeClass.includes('primary') ? '#0d6efd' : (badgeClass.includes('success') ? '#198754' : '#6c757d')}">
+              <td class="ps-3">
+                <code class="text-primary d-block small mb-1">${id.substring(0,10)}</code>
                 <small class="text-muted" style="font-size:0.7rem">${dateStr}</small>
               </td>
-              <td>${userEmail}<br><small class="text-muted">${phone}</small></td>
-              <td><span class="badge ${badgeClass}">${status}</span></td>
-              <td>₹${total}</td>
-              <td class="small" style="max-width:180px;">${address}</td>
-              <td>${itemsHtml}</td>
               <td>
-                <select class="form-select form-select-sm status-select" data-id="${id}">
+                <div class="fw-bold small">${userEmail}</div>
+                <small class="text-muted">${phone}</small>
+              </td>
+              <td><span class="badge rounded-pill ${badgeClass}" style="padding:0.5em 1em; font-weight:600;">${status.toUpperCase()}</span></td>
+              <td class="fw-bold">₹${totalAmount}</td>
+              <td class="small text-muted" style="max-width:180px;">${address}</td>
+              <td>${itemsHtml}</td>
+              <td class="pe-3">
+                <select class="form-select form-select-sm status-select border-0 bg-light" data-id="${id}">
                   ${optionsHtml}
                 </select>
               </td>
@@ -118,28 +136,32 @@ if (!is_admin()) {
       });
       
       tableHtml += `</tbody></table></div>`;
-      container.innerHTML = baseHtml + tableHtml;
+      container.innerHTML = debugHtml + tableHtml;
       
       // Bind status events
       document.querySelectorAll('.status-select').forEach(select => {
           select.addEventListener('change', async (e) => {
               const orderId = e.target.getAttribute('data-id');
               const newStatus = e.target.value;
+              e.target.disabled = true;
               const res = await orderService.updateOrderStatus(orderId, newStatus);
+              e.target.disabled = false;
               if (!res.success) {
                   alert("Failed to update status: " + res.error);
                   e.target.value = e.target.getAttribute('data-original'); // revert
               } else {
                   e.target.setAttribute('data-original', newStatus);
+                  // Optionally reload to update badge/border
+                  loadAdminOrders();
               }
           });
           select.setAttribute('data-original', select.value);
       });
       } catch(e) {
           console.error("Admin render failed:", e);
-          container.innerHTML = `<div class="alert alert-danger">Error: ${e.message}</div>`;
+          container.innerHTML = `<div class="alert alert-danger border-0 shadow-sm"><strong>Terminal Error:</strong> ${e.message}</div>`;
       } finally {
-          setLoading(false);
+          // setLoading(false) equivalent
       }
   }
   

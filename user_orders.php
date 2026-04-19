@@ -24,36 +24,53 @@ if (!is_user()) {
   const container = document.getElementById('ordersContainer');
   
   function setLoading(isLoading) {
+      const btn = document.querySelector('.btn-refresh-orders');
+      if (btn) btn.disabled = isLoading;
       if (isLoading) {
-          // Do nothing explicitly except maintaining loading state semantic variable for user testing verification
+          container.innerHTML = `
+            <div class="text-center py-5">
+              <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+              </div>
+              <p class="mt-2 text-muted">Locating your orders...</p>
+            </div>
+          `;
       }
   }
 
   async function loadOrders() {
       setLoading(true);
-      container.innerHTML = '<div class="alert alert-info">Loading your orders...</div>';
-      
       try {
           const orders = await orderService.getUserOrders(uid);
           
-          let baseHtml = `<div style="background:#eee;padding:10px;margin-bottom:10px;border-radius:4px;"><p class="fw-bold m-0 text-dark">Total Orders: ${orders.length}</p><pre class="text-dark small m-0" style="max-height:200px;overflow:auto;">${JSON.stringify(orders, null, 2)}</pre></div>`;
+          let debugHtml = `
+            <div class="card border-0 bg-light mb-4 shadow-sm">
+              <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <span class="fw-bold text-dark">🔍 System Debug View</span>
+                  <span class="badge bg-primary">Total: ${orders.length}</span>
+                </div>
+                <pre class="small text-dark mb-0" style="max-height:150px; overflow:auto; background:rgba(0,0,0,0.03); padding:10px; border-radius:8px;">${JSON.stringify(orders, null, 2)}</pre>
+              </div>
+            </div>
+          `;
 
           if (orders.length === 0) {
-              container.innerHTML = baseHtml + '<div class="alert alert-info">You have not placed any orders yet. <a href="index.php?page=products" class="alert-link">Browse products</a>.</div>';
+              container.innerHTML = debugHtml + '<div class="alert alert-info border-0 shadow-sm">You have not placed any orders yet. <a href="index.php?page=products" class="alert-link">Browse products</a>.</div>';
               return;
           }
           
           let tableHtml = `
-            <div class="table-responsive">
-              <table class="table table-bordered table-striped align-middle">
-                <thead class="table-dark">
+            <div class="table-responsive card border-0 shadow-sm">
+              <table class="table table-hover align-middle mb-0">
+                <thead class="bg-dark text-white">
                   <tr>
-                    <th>Order ID</th>
+                    <th class="ps-3">Order ID</th>
                     <th>Items</th>
                     <th>Total</th>
                     <th>Status</th>
                     <th>Address</th>
-                    <th>Date</th>
+                    <th class="pe-3">Date</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -73,16 +90,16 @@ if (!is_user()) {
                   o.items.forEach(item => {
                       const name = item.name || item.productName || 'Item';
                       const qty = parseInt(item.quantity || item.qty || 1);
-                      itemsHtml += `<div class="small">${name} &times; ${qty}</div>`;
+                      itemsHtml += `<div class="small fw-500">${name} <span class="text-muted">× ${qty}</span></div>`;
                   });
               } else {
-                  itemsHtml = '<small>—</small>';
+                  itemsHtml = '<small class="text-muted">—</small>';
               }
               
-              const total = parseFloat(o.totalAmount || o.total || 0).toFixed(2);
+              const total = parseFloat(o.totalAmount || o.total || 0).toLocaleString(undefined, {minimumFractionDigits: 2});
               const address = o.address || '';
               
-              let dateStr = o.createdAt || '';
+              let dateStr = 'N/A';
               if (o.createdAt && o.createdAt.toDate) {
                   dateStr = o.createdAt.toDate().toLocaleString();
               } else if (typeof o.createdAt === 'string') {
@@ -93,23 +110,23 @@ if (!is_user()) {
               
               tableHtml += `
                 <tr>
-                  <td><small class="text-muted">${(o.id || '').substring(0,10)}...</small></td>
+                  <td class="ps-3"><code class="text-primary small">${(o.id || '').substring(0,8)}</code></td>
                   <td>${itemsHtml}</td>
-                  <td>₹${total}</td>
-                  <td><span class="badge ${badgeClass}">${status}</span></td>
-                  <td>${address}</td>
-                  <td>${dateStr}</td>
+                  <td class="fw-bold text-dark">₹${total}</td>
+                  <td><span class="badge rounded-pill ${badgeClass}" style="font-weight:500; padding:0.5em 1em;">${status.toUpperCase()}</span></td>
+                  <td class="small text-muted" style="max-width:150px;">${address}</td>
+                  <td class="pe-3 small">${dateStr}</td>
                 </tr>
               `;
           });
           
           tableHtml += `</tbody></table></div>`;
-          container.innerHTML = baseHtml + tableHtml;
+          container.innerHTML = debugHtml + tableHtml;
       } catch (e) {
           console.error(e);
-          container.innerHTML = `<div class="alert alert-danger">Error loading orders. ${e.message}</div>`;
+          container.innerHTML = `<div class="alert alert-danger shadow-sm border-0"><strong>Error:</strong> Failed to retrieve orders. ${e.message}</div>`;
       } finally {
-          setLoading(false);
+          // ensure setLoading(false) equivalent logic but we just replace innerHTML anyway
       }
   }
   
