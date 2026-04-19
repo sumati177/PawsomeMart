@@ -2,11 +2,22 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ─── PRODUCTS: Public read, admin-only write ───
+    // ─── PRODUCTS ───
     match /products/{productId} {
+      // Anyone can read products
       allow read: if true;
-      allow write: if request.auth != null
-                   && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+
+      // Admin can do full writes (create, delete, update any field)
+      allow create, delete: if request.auth != null
+                            && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+
+      // Admin can update any field
+      allow update: if request.auth != null
+                    && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+
+      // Authenticated users can update ONLY the stock field (for order placement)
+      allow update: if request.auth != null
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stock']);
     }
 
     // ─── USERS: Can only read/write their own document ───
