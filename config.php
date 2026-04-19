@@ -3,7 +3,9 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
     // Vercel Stateless Session Polyfill
     if (empty($_SESSION) && isset($_COOKIE['app_sess'])) {
-        $sess_data = json_decode(base64_decode($_COOKIE['app_sess']), true);
+        $decoded = base64_decode($_COOKIE['app_sess']);
+        $uncompressed = @gzuncompress($decoded);
+        $sess_data = json_decode($uncompressed ?: $decoded, true); // Fallback to uncompressed if legacy
         if (is_array($sess_data)) $_SESSION = $sess_data;
     }
 }
@@ -166,7 +168,7 @@ function firestore_get($collection, $docId)
  */
 function firestore_get_all($collection)
 {
-    $path = '/' . $collection;
+    $path = '/' . $collection . '?pageSize=1000';
     $result = firestore_request('GET', $path);
     
     $documents = [];
@@ -350,7 +352,9 @@ function cloudinary_upload($file_path, $public_id = '')
  */
 function app_redirect($url) {
     if (!headers_sent()) {
-        setcookie('app_sess', base64_encode(json_encode($_SESSION ?? [])), time() + 86400 * 7, '/');
+        $sess_str = json_encode($_SESSION ?? []);
+        $compressed = function_exists('gzcompress') ? gzcompress($sess_str) : $sess_str;
+        setcookie('app_sess', base64_encode($compressed), time() + 86400 * 7, '/');
     }
     header('Location: ' . $url);
     exit;

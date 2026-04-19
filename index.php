@@ -46,7 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             app_redirect('index.php?page=register');
         } else {
             // Create user profile in Firestore
-            $profile_result = firestore_add('users', [
+            $profile_result = firestore_update('users', $res['localId'], [
                 'email'      => $email,
                 'isAdmin'    => false,
                 'name'       => explode('@', $email)[0],
@@ -80,7 +80,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['user'] = [
                 'id'       => $res['localId'],
                 'username' => $res['email'],
-                'idToken'  => $res['idToken'],
                 'phone'    => $profile['phone'] ?? '',
                 'address'  => $profile['address'] ?? ''
             ];
@@ -119,8 +118,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (is_array($profile) && isset($profile['isAdmin']) && $profile['isAdmin'] === true) {
                 $_SESSION['admin'] = [
                     'id'       => $res['localId'],
-                    'username' => $res['email'],
-                    'idToken'  => $res['idToken']
+                    'username' => $res['email']
                 ];
                 app_redirect('index.php?page=index_admin');
             } else {
@@ -214,7 +212,9 @@ include 'footer.php';
 
 // Safe shutdown stateless cookie injection
 if (!headers_sent()) {
-    setcookie('app_sess', base64_encode(json_encode($_SESSION ?? [])), time() + 86400 * 7, '/');
+    $sess_str = json_encode($_SESSION ?? []);
+    $compressed = function_exists('gzcompress') ? gzcompress($sess_str) : $sess_str;
+    setcookie('app_sess', base64_encode($compressed), time() + 86400 * 7, '/');
 }
 ob_end_flush();
 ?>
