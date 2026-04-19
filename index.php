@@ -130,16 +130,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Add to Cart
     if ($act === 'add_cart') {
-        $id = $_POST['id'] ?? ''; $qty = (int)($_POST['qty'] ?? 1);
-        $p = firestore_get('products', $id);
-        if ($p) {
+        $id  = $_POST['id'] ?? '';
+        $qty = max(1, (int)($_POST['qty'] ?? 1));
+        $p   = firestore_get('products', $id);
+        if ($p && !isset($p['error'])) {
+            $avail = (int)($p['stock'] ?? 999);
             if (!isset($_SESSION['cart'])) $_SESSION['cart'] = [];
             $found = false;
-            foreach ($_SESSION['cart'] as &$it) { if ($it['id'] === $id) { $it['qty'] += $qty; $found = true; break; } }
+            foreach ($_SESSION['cart'] as &$it) {
+                if ($it['id'] === $id) {
+                    $new_qty = min($it['qty'] + $qty, $avail);
+                    if ($new_qty <= 0) {
+                        $_SESSION['flash_err'] = 'This item is out of stock.';
+                        app_redirect('index.php?page=cart');
+                    }
+                    $it['qty'] = $new_qty;
+                    $found = true;
+                    break;
+                }
+            }
+            unset($it);
             if (!$found) {
+                if ($avail < 1) {
+                    $_SESSION['flash_err'] = htmlspecialchars($p['name']).' is out of stock.';
+                    app_redirect('index.php?page=products');
+                }
                 $_SESSION['cart'][] = [
-                    'id' => $id, 'name' => $p['name'], 'price' => $p['price'], 
-                    'qty' => $qty, 'image_url' => $p['imageUrls'][0] ?? ($p['images'][0] ?? '')
+                    'id'        => $id,
+                    'name'      => $p['name'],
+                    'price'     => $p['price'],
+                    'qty'       => min($qty, $avail),
+                    'image_url' => $p['imageUrls'][0] ?? ($p['images'][0] ?? '')
                 ];
             }
             if (is_logged_in()) {
@@ -169,18 +190,61 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($act === 'checkout') {
         if (!isset($_SESSION['user'])) { app_redirect('index.php?page=login'); }
         $u = $_SESSION['user'];
-        $total = 0; foreach ($_SESSION['cart'] as $it) $total += $it['price'] * $it['qty'];
-        
+
+        // Always fetch freshest address from Firestore (because profile may have been updated)
+        $fresh = firestore_get('users', $u['id']);
+        if ($fresh && !isset($fresh['error'])) {
+            $_SESSION['user']['address'] = $fresh['address'] ?? '';
+            $_SESSION['user']['phone']   = $fresh['phone'] ?? '';
+            $u = $_SESSION['user'];
+        }
+
+        if (empty($u['address'])) {
+            $_SESSION['flash_err'] = 'Please add a delivery address before checkout.';
+            app_redirect('index.php?page=profile');
+        }
+
+        // --- Stock validation ---
+        $stock_errors = [];
+        $stock_map = []; // product_id => current_stock
+        foreach ($_SESSION['cart'] as $it) {
+            $prod = firestore_get('products', $it['id']);
+            if (!$prod || isset($prod['error'])) { continue; }
+            $avail = (int)($prod['stock'] ?? 999);
+            $stock_map[$it['id']] = $avail;
+            if ((int)$it['qty'] > $avail) {
+                $stock_errors[] = htmlspecialchars($it['name']) . ' (only ' . $avail . ' in stock)';
+            }
+        }
+        if (!empty($stock_errors)) {
+            $_SESSION['flash_err'] = 'Stock limit exceeded for: ' . implode(', ', $stock_errors);
+            app_redirect('index.php?page=cart');
+        }
+
+        // --- Place order ---
+        $total = 0;
+        foreach ($_SESSION['cart'] as $it) $total += $it['price'] * $it['qty'];
+
         $orderData = [
-            'userId' => $u['id'], 
-            'totalAmount' => (float)$total,
+            'userId'        => $u['id'],
+            'totalAmount'   => (float)$total,
             'paymentMethod' => $_POST['payment'] ?? 'COD',
-            'status' => 'Placed',
-            'createdAt' => ['timestamp_utc' => date('Y-m-d\TH:i:s\Z')],
-            'address' => $u['address'] ?? '',
-            'items' => $_SESSION['cart']
+            'status'        => 'Placed',
+            'createdAt'     => ['timestamp_utc' => date('Y-m-d\TH:i:s\Z')],
+            'address'       => $u['address'] ?? '',
+            'items'         => $_SESSION['cart']
         ];
-        firestore_add('orders', $orderData);
+        $order_result = firestore_add('orders', $orderData);
+
+        // Decrement stock for each ordered item
+        foreach ($_SESSION['cart'] as $it) {
+            $pid = $it['id'];
+            if (isset($stock_map[$pid])) {
+                $new_stock = max(0, $stock_map[$pid] - (int)$it['qty']);
+                firestore_update('products', $pid, ['stock' => $new_stock]);
+            }
+        }
+
         $_SESSION['cart'] = [];
         firestore_update('users', $u['id'], ['cart' => []]);
         app_redirect('index.php?page=user_orders&ok=1');

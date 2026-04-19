@@ -149,6 +149,49 @@ function firestore_add($collection, $data)
 }
 
 /**
+ * Query Firestore collection with a simple field equality filter
+ */
+function firestore_query($collection, $field, $value)
+{
+    $url = 'https://firestore.googleapis.com/v1/projects/' . FIREBASE_PROJECT_ID . '/databases/(default)/documents:runQuery';
+
+    $query = [
+        'structuredQuery' => [
+            'from'  => [['collectionId' => $collection]],
+            'where' => [
+                'fieldFilter' => [
+                    'field' => ['fieldPath' => $field],
+                    'op'    => 'EQUAL',
+                    'value' => ['stringValue' => $value]
+                ]
+            ]
+        ]
+    ];
+
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($query));
+    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    $response = curl_exec($ch);
+    curl_close($ch);
+
+    $results = json_decode($response, true);
+    $documents = [];
+    if (is_array($results)) {
+        foreach ($results as $r) {
+            if (isset($r['document']['fields'])) {
+                preg_match('/\/([^\/]+)$/', $r['document']['name'], $matches);
+                $documents[$matches[1] ?? ''] = firestore_decode_data($r['document']['fields']);
+            }
+        }
+    }
+    return $documents;
+}
+
+/**
  * Get a document from Firestore
  */
 function firestore_get($collection, $docId)

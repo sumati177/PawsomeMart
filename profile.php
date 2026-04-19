@@ -1,8 +1,14 @@
 <?php 
 if(!is_user()){ 
-    header('Location:index.php?page=login'); 
-    exit; 
+    app_redirect('index.php?page=login');
 } 
+
+// Always refresh user address/phone from Firestore to get the latest
+$fresh_profile = firestore_get('users', $_SESSION['user']['id']);
+if ($fresh_profile && !isset($fresh_profile['error'])) {
+    $_SESSION['user']['address'] = $fresh_profile['address'] ?? '';
+    $_SESSION['user']['phone']   = $fresh_profile['phone'] ?? '';
+}
 
 $user = $_SESSION['user'];
 
@@ -23,8 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['act']) && $_POST['act
     $_SESSION['user']['address'] = $address;
     
     $_SESSION['flash_msg'] = 'Profile updated successfully!';
-    header('Location: index.php?page=profile');
-    exit;
+    app_redirect('index.php?page=profile');
 }
 ?>
 <div class="container">
