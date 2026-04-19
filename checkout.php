@@ -16,10 +16,28 @@ foreach ($_SESSION['cart'] as $it) $total += $it['price'] * $it['qty'];
 <div class="container">
   <h4 class="fw-bold mb-4">🛍️ Checkout</h4>
 
-  <?php if (empty($user['address'])): ?>
-    <div class="alert alert-warning">
-      ⚠️ You need to add a delivery address before placing an order.
-      <a href="index.php?page=profile" class="btn btn-sm btn-pet ms-3">Add Address</a>
+  <?php if (empty($user['address']) || empty($user['phone'])): ?>
+    <div class="card shadow-sm mb-4">
+      <div class="card-header bg-warning text-dark fw-bold">⚠️ Complete Your Profile</div>
+      <div class="card-body">
+        <p class="small text-muted mb-3">Please provide your delivery details to continue with the order.</p>
+        <form method="post" action="index.php?page=checkout">
+          <input type="hidden" name="act" value="profile_update_lite">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label small fw-bold">Mobile Number (10 Digits)</label>
+              <input type="text" name="phone" class="form-control" placeholder="e.g. 9876543210" value="<?php echo htmlspecialchars($user['phone']); ?>" required pattern="[0-9]{10}">
+            </div>
+            <div class="col-md-12">
+              <label class="form-label small fw-bold">Delivery Address</label>
+              <textarea name="address" class="form-control" rows="2" placeholder="Enter your full address..." required><?php echo htmlspecialchars($user['address']); ?></textarea>
+            </div>
+            <div class="col-12">
+              <button class="btn btn-pet">💾 Save & Continue</button>
+            </div>
+          </div>
+        </form>
+      </div>
     </div>
   <?php else: ?>
 

@@ -30,6 +30,30 @@ if (isset($_GET['page']) && $_GET['page'] === 'cart' && isset($_GET['remove'])) 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $act = $_POST['act'] ?? '';
 
+    // Profile Update
+    if ($act === 'profile_update' || $act === 'profile_update_lite') {
+        if (!is_logged_in()) { app_redirect('index.php?page=login'); }
+        $uid     = $_SESSION['user']['id'];
+        $phone   = trim($_POST['phone'] ?? '');
+        $address = trim($_POST['address'] ?? '');
+        
+        // Validation for mobile no to be 10
+        if (!preg_match('/^[0-9]{10}$/', $phone)) {
+            $_SESSION['flash_err'] = 'Mobile number must be exactly 10 digits.';
+            app_redirect('index.php?page=' . ($act === 'profile_update' ? 'profile' : 'checkout'));
+        }
+
+        firestore_update('users', $uid, [
+            'phone'      => $phone,
+            'address'    => $address,
+            'updated_at' => date('Y-m-d\TH:i:s\Z')
+        ]);
+        $_SESSION['user']['phone']   = $phone;
+        $_SESSION['user']['address'] = $address;
+        $_SESSION['flash_msg'] = 'Profile details updated!';
+        app_redirect('index.php?page=' . ($act === 'profile_update' ? 'profile' : 'checkout'));
+    }
+
     // Register User (Firebase Auth REST)
     if ($act === 'register') {
         $email = trim($_POST['username'] ?? ''); // Assuming form uses 'username' field for email
@@ -175,8 +199,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (isset($_POST['qty']) && is_array($_POST['qty'])) {
             foreach ($_POST['qty'] as $i => $q) {
                 if (isset($_SESSION['cart'][$i])) {
+                    $pid = $_SESSION['cart'][$i]['id'];
                     $qty = max(1, (int)$q);
-                    $_SESSION['cart'][$i]['qty'] = $qty;
+                    
+                    // Stock logic in update
+                    $p = firestore_get('products', $pid);
+                    $avail = (int)($p['stock'] ?? 999);
+                    
+                    if ($qty > $avail) {
+                        $_SESSION['cart'][$i]['qty'] = $avail;
+                        $_SESSION['flash_err'] = 'Some quantities were adjusted due to limited stock.';
+                    } else {
+                        $_SESSION['cart'][$i]['qty'] = $qty;
+                    }
                 }
             }
             if (is_logged_in()) {

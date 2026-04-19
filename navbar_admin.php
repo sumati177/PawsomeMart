@@ -15,17 +15,17 @@ if (!is_admin()) {
     <div class="collapse navbar-collapse" id="adminNav">
       <ul class="navbar-nav me-auto mb-2 mb-lg-0">
         <li class="nav-item">
-          <a class="nav-link fw-500" href="index.php?page=products_admin" style="color:#e2e8f0 !important; font-weight:500; opacity:1; padding: 0.5rem 1rem;">
+          <a class="nav-link fw-bold" href="index.php?page=products_admin" style="color:#ffffff !important; padding: 0.5rem 1.2rem;">
             📦 Products
           </a>
         </li>
         <li class="nav-item">
-          <a class="nav-link" href="index.php?page=users_admin" style="color:#e2e8f0 !important; font-weight:500; opacity:1; padding: 0.5rem 1rem;">
+          <a class="nav-link fw-bold" href="index.php?page=users_admin" style="color:#ffffff !important; padding: 0.5rem 1.2rem;">
             👥 Users
           </a>
         </li>
         <li class="nav-item">
-          <a class="nav-link" href="index.php?page=orders_admin" style="color:#e2e8f0 !important; font-weight:500; opacity:1; padding: 0.5rem 1rem;">
+          <a class="nav-link fw-bold" href="index.php?page=orders_admin" style="color:#ffffff !important; padding: 0.5rem 1.2rem;">
             🛒 Orders
           </a>
         </li>

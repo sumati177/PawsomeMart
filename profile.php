@@ -1,36 +1,15 @@
-<?php 
-if(!is_user()){ 
+<?php
+if(!is_user()){
     app_redirect('index.php?page=login');
-} 
+}
 
-// Always refresh user address/phone from Firestore to get the latest
+// Always refresh user data from Firestore
 $fresh_profile = firestore_get('users', $_SESSION['user']['id']);
 if ($fresh_profile && !isset($fresh_profile['error'])) {
     $_SESSION['user']['address'] = $fresh_profile['address'] ?? '';
     $_SESSION['user']['phone']   = $fresh_profile['phone'] ?? '';
 }
-
 $user = $_SESSION['user'];
-
-// Handle profile update
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['act']) && $_POST['act'] === 'profile_update') {
-    $phone = trim($_POST['phone'] ?? '');
-    $address = trim($_POST['address'] ?? '');
-    
-    // Update in Firestore
-    firestore_update('users', $user['id'], [
-        'phone' => $phone,
-        'address' => $address,
-        'updated_at' => date('Y-m-d\TH:i:s\Z')
-    ]);
-    
-    // Update session
-    $_SESSION['user']['phone'] = $phone;
-    $_SESSION['user']['address'] = $address;
-    
-    $_SESSION['flash_msg'] = 'Profile updated successfully!';
-    app_redirect('index.php?page=profile');
-}
 ?>
 <div class="container">
   <div class="row justify-content-center">

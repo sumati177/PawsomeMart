@@ -18,31 +18,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['act']) && $_POST['act
     }
 }
 
-// Fetch ALL orders using runQuery (no filter = full collection scan via structured query)
-$url = 'https://firestore.googleapis.com/v1/projects/' . FIREBASE_PROJECT_ID . '/databases/(default)/documents:runQuery';
-$query = ['structuredQuery' => ['from' => [['collectionId' => 'orders']]]];
-$ch = curl_init();
-curl_setopt_array($ch, [
-    CURLOPT_URL           => $url,
-    CURLOPT_RETURNTRANSFER => true,
-    CURLOPT_POST          => true,
-    CURLOPT_POSTFIELDS    => json_encode($query),
-    CURLOPT_HTTPHEADER    => ['Content-Type: application/json'],
-    CURLOPT_SSL_VERIFYPEER => false,
-]);
-$raw = curl_exec($ch);
-curl_close($ch);
+// Fetch ALL orders
+$all_orders = firestore_get_all('orders');
 
-$all_orders = [];
-$results = json_decode($raw, true);
-if (is_array($results)) {
-    foreach ($results as $r) {
-        if (isset($r['document']['fields'])) {
-            preg_match('/\/([^\/]+)$/', $r['document']['name'], $m);
-            $all_orders[$m[1] ?? uniqid()] = firestore_decode_data($r['document']['fields']);
-        }
-    }
+// Sort orders by createdAt descending (if possible in PHP)
+if ($all_orders) {
+    uasort($all_orders, function($a, $b) {
+        $da = $a['createdAt'] ?? '';
+        $db = $b['createdAt'] ?? '';
+        return strcmp($db, $da);
+    });
 }
+
 
 // Build a user email map
 $all_users = firestore_get_all('users');

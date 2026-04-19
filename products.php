@@ -129,6 +129,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('qv-stock').textContent = 'Stock: ' + p.stock;
                 document.getElementById('qv-stock').className = p.stock > 0 ? 'badge bg-success mb-2' : 'badge bg-danger mb-2';
                 document.getElementById('qv-id').value = p.id;
+                
+                // Add max attribute to qty input
+                const qtyInput = document.querySelector('#quickViewModal input[name="qty"]');
+                qtyInput.max = p.stock;
+                if (p.stock <= 0) {
+                    qtyInput.value = 0;
+                    qtyInput.min = 0;
+                    qtyInput.disabled = true;
+                    document.querySelector('#quickViewModal button.btn-pet').disabled = true;
+                } else {
+                    qtyInput.value = 1;
+                    qtyInput.min = 1;
+                    qtyInput.disabled = false;
+                    document.querySelector('#quickViewModal button.btn-pet').disabled = false;
+                }
+                
                 qvModal.show();
             });
         });
