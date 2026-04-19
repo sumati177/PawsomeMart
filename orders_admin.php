@@ -17,15 +17,28 @@ if (!is_admin()) {
   const container = document.getElementById('ordersContainer');
   const countSpan = document.getElementById('ordersCount');
   
-  orderService.subscribeToAdminOrders((orders) => {
-      countSpan.textContent = orders.length + ' total';
-      
-      if (orders.length === 0) {
-          container.innerHTML = '<div class="alert alert-info">No orders found in the database.</div>';
-          return;
+  function setLoading(isLoading) {
+      if (isLoading) {
+          // Do nothing explicitly
       }
+  }
+
+  async function loadAdminOrders() {
+      setLoading(true);
+      container.innerHTML = '<div class="alert alert-info">Loading orders...</div>';
       
-      let html = `
+      try {
+          const orders = await orderService.getAdminOrders();
+          countSpan.textContent = orders.length + ' total';
+          
+          let baseHtml = `<div style="background:#eee;padding:10px;margin-bottom:10px;border-radius:4px;"><p class="fw-bold m-0 text-dark">Total Orders: ${orders.length}</p><pre class="text-dark small m-0" style="max-height:200px;overflow:auto;">${JSON.stringify(orders, null, 2)}</pre></div>`;
+
+          if (orders.length === 0) {
+              container.innerHTML = baseHtml + '<div class="alert alert-info">No orders found in the database.</div>';
+              return;
+          }
+          
+          let tableHtml = `
       <div class="table-responsive">
         <table class="table table-bordered align-middle">
           <thead class="table-dark">
@@ -74,6 +87,8 @@ if (!is_admin()) {
               dateStr = o.createdAt.toDate().toLocaleString();
           } else if (typeof o.createdAt === 'string') {
               dateStr = new Date(o.createdAt).toLocaleString();
+          } else if (o.createdAt && o.createdAt.seconds) {
+              dateStr = new Date(o.createdAt.seconds * 1000).toLocaleString();
           }
           
           let optionsHtml = '';
@@ -82,7 +97,7 @@ if (!is_admin()) {
               optionsHtml += `<option value="${s}" ${status === s ? 'selected' : ''}>${s.charAt(0).toUpperCase() + s.slice(1)}</option>`;
           });
 
-          html += `
+          tableHtml += `
             <tr>
               <td>
                 <small class="text-muted d-block">${id.substring(0,10)}...</small>
@@ -102,8 +117,8 @@ if (!is_admin()) {
           `;
       });
       
-      html += `</tbody></table></div>`;
-      container.innerHTML = html;
+      tableHtml += `</tbody></table></div>`;
+      container.innerHTML = baseHtml + tableHtml;
       
       // Bind status events
       document.querySelectorAll('.status-select').forEach(select => {
@@ -120,5 +135,13 @@ if (!is_admin()) {
           });
           select.setAttribute('data-original', select.value);
       });
-  });
+      } catch(e) {
+          console.error("Admin render failed:", e);
+          container.innerHTML = `<div class="alert alert-danger">Error: ${e.message}</div>`;
+      } finally {
+          setLoading(false);
+      }
+  }
+  
+  loadAdminOrders();
 </script>

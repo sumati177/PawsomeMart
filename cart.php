@@ -29,7 +29,7 @@ $total=0;
             <td><?php echo htmlspecialchars($it['name']); ?></td>
             <td>₹<?php echo number_format($it['price'],2); ?></td>
             <td style="max-width:120px">
-              <input type="number" class="form-control" name="qty[]" value="<?php echo min((int)$it['qty'], $stock); ?>" min="1" max="<?php echo $stock; ?>">
+              <input type="number" class="form-control" name="qty[]" value="<?php echo min((int)$it['qty'], $stock); ?>" min="1" max="<?php echo $stock; ?>" oninput="if(this.value > <?php echo $stock; ?>) this.value = <?php echo $stock; ?>;">
               <?php if ((int)$it['qty'] >= $stock): ?>
                 <div class="text-danger mt-1" style="font-size:0.75rem;">Only <?php echo $stock; ?> items left</div>
               <?php endif; ?>

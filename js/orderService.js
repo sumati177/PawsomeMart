@@ -1,8 +1,11 @@
 import { db } from './firebase-config.js';
-import { collection, doc, addDoc, updateDoc, onSnapshot, query, where, orderBy, getDocs, runTransaction, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
+import { collection, doc, addDoc, updateDoc, setDoc, getDocs, query, where, orderBy, runTransaction, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
 
 class OrderService {
     async placeOrder(userId, userEmail, items, totalAmount, address, phone) {
+        console.log("Placing order...");
+        console.log("User:", userId);
+        console.log("Cart:", items);
         try {
             // Transaction for atomic stock update
             await runTransaction(db, async (transaction) => {
@@ -33,20 +36,28 @@ class OrderService {
                 });
             });
 
-            // If transaction successful, place the order
-            const orderData = {
-                userId,
-                userEmail,
-                items,
-                totalAmount,
-                address,
+            // Step 9: Save user info
+            await setDoc(doc(db, "users", userId), {
                 phone,
+                address
+            }, { merge: true });
+
+            const orderData = {
+                userId: userId,
+                items: items,
+                totalAmount: totalAmount,
+                address: address,
+                phone: phone,
                 status: "pending",
                 createdAt: serverTimestamp()
             };
 
             const docRef = await addDoc(collection(db, "orders"), orderData);
-            await updateDoc(docRef, { orderId: docRef.id });
+            console.log("Order saved with ID:", docRef.id);
+
+            if (!docRef.id) {
+                throw new Error("Order document not created!");
+            }
 
             return { success: true, orderId: docRef.id };
         } catch (error) {
@@ -55,21 +66,22 @@ class OrderService {
         }
     }
 
-    subscribeToAdminOrders(callback) {
-        const q = query(collection(db, "orders"), orderBy("createdAt", "desc"));
-        return onSnapshot(q, (snapshot) => {
-            const orders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            callback(orders);
-        });
+    async getAdminOrders() {
+        console.log("Fetching ALL orders (admin)");
+        const snapshot = await getDocs(collection(db, "orders"));
+        console.log("Admin orders retrieved:", snapshot.docs.length);
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     }
 
     async getUserOrders(userId) {
+        console.log("Fetching user orders...");
+        console.log("UID:", userId);
         const q = query(
             collection(db, "orders"),
-            where("userId", "==", userId),
-            orderBy("createdAt", "desc")
+            where("userId", "==", userId)
         );
         const snapshot = await getDocs(q);
+        console.log("Orders fetched:", snapshot.docs.length);
         return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     }
 

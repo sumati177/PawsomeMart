@@ -4,7 +4,7 @@ if (!is_admin()) {
   app_redirect('index.php?page=admin_login');
 }
 ?>
-<nav class="navbar navbar-expand-lg sticky-top py-2 navbar-admin">
+<nav class="navbar navbar-expand-lg sticky-top py-2 navbar-admin" style="background-color: #1e293b; color: #ffffff;">
   <div class="container">
     <a class="navbar-brand fw-bold" href="index.php?page=index_admin">
       <span class="text-white">Admin</span><span style="color:#4ade80;">Core</span>

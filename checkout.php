@@ -112,6 +112,13 @@ foreach ($_SESSION['cart'] as $it) $total += $it['price'] * $it['qty'];
           const phone = <?php echo json_encode($user['phone']); ?>;
           const totalAmount = <?php echo $total; ?>;
           
+          if (!/^[0-9]{10}$/.test(phone)) {
+              alert('Invalid phone number. Must be 10 digits.');
+              placeOrderBtn.disabled = false;
+              placeOrderBtn.innerHTML = '✅ Place Order';
+              return;
+          }
+
           const items = <?php 
             $jsItems = array_map(function($it) {
                 return [
