@@ -115,6 +115,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['flash_err'] = 'Login failed: ' . $res['message'];
             app_redirect('index.php?page=login');
         } else {
+            $_SESSION['user_id_token'] = $res['idToken'] ?? null;
             // Fetch extra profile data from Firestore
             $profile = firestore_get('users', $res['localId']);
             $_SESSION['user'] = [
@@ -127,7 +128,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Store credentials for client-side Firebase Auth sign-in
             // Required so JS SDK can authenticate for Firestore security rules
             $_SESSION['user_creds'] = ['email' => $email, 'password' => $pass];
-            $_SESSION['user_id_token'] = $res['idToken'] ?? null;
             
             // Sync cart with Firestore
             $db_cart = $profile['cart'] ?? [];
@@ -156,6 +156,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['flash_err'] = 'Admin Login failed: ' . $res['message'];
             app_redirect('index.php?page=admin_login');
         } else {
+            $_SESSION['user_id_token'] = $res['idToken'] ?? null;
             // Verify if user info exists and role is admin in Firestore
             $profile = firestore_get('users', $res['localId']);
             if (is_array($profile) && isset($profile['isAdmin']) && $profile['isAdmin'] === true) {
@@ -165,7 +166,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ];
                 // Store admin credentials for client-side Firebase Auth
                 $_SESSION['admin_creds'] = ['email' => $email, 'password' => $pass];
-                $_SESSION['user_id_token'] = $res['idToken'] ?? null;
                 app_redirect('index.php?page=index_admin');
             } else {
                 $_SESSION['flash_err'] = 'Unauthorized: Admin privileges required.';
