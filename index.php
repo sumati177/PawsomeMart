@@ -49,7 +49,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Profile Update
     if ($act === 'profile_update' || $act === 'profile_update_lite') {
         if (!is_logged_in()) { app_redirect('index.php?page=login'); }
-        $uid     = $_SESSION['user']['id'];
+        $uid = $_SESSION['user']['id'] ?? $_SESSION['admin']['id'] ?? '';
+        if (empty($uid)) { 
+            $_SESSION['flash_err'] = 'Session error: User ID not found. Please relogin.';
+            app_redirect('index.php?page=login');
+        }
         $phone   = trim($_POST['phone'] ?? '');
         $address = trim($_POST['address'] ?? '');
         
@@ -85,6 +89,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['flash_err'] = 'Registration failed: ' . $res['message'];
             app_redirect('index.php?page=register');
         } else {
+            // Temporarily set token for profile creation
+            $_SESSION['user_id_token'] = $res['idToken'] ?? null;
+            
             // Create user profile in Firestore
             $profile_result = firestore_update('users', $res['localId'], [
                 'email'      => $email,
@@ -94,6 +101,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'phone'      => '',
                 'address'    => ''
             ]);
+            
+            unset($_SESSION['user_id_token']); // Clear it so they still have to log in
             
             $_SESSION['flash_msg'] = 'Registered successfully! You can now login.';
             app_redirect('index.php?page=login');

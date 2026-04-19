@@ -152,8 +152,14 @@ class OrderService {
                 throw new Error("User profile not found.");
             }
             const profile = userDoc.data();
-            if (profile.isAdmin !== true && profile.role !== "admin") {
-                throw new Error("You do not have admin privileges.");
+            console.log("[OrderService] Admin Profile Data:", profile);
+            
+            const isPrivileged = profile.isAdmin === true || 
+                               profile.role === "admin" || 
+                               profile.Role === "Admin";
+
+            if (!isPrivileged) {
+                throw new Error("You do not have admin privileges. (UID: " + user.uid + ")");
             }
 
             // Fetch all orders
