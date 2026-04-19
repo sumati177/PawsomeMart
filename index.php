@@ -9,10 +9,11 @@ if (!function_exists('firestore_get_all')) {
 // --- LOGOUT ACTIONS ---
 if (isset($_GET['action']) && $_GET['action'] === 'logout_user') { 
     unset($_SESSION['user']); 
+    unset($_SESSION['user_creds']);
     $_SESSION['cart'] = []; 
     app_redirect('index.php'); 
 }
-if (isset($_GET['action']) && $_GET['action'] === 'logout_admin') { unset($_SESSION['admin']); app_redirect('index.php'); }
+if (isset($_GET['action']) && $_GET['action'] === 'logout_admin') { unset($_SESSION['admin']); unset($_SESSION['admin_creds']); app_redirect('index.php'); }
 
 // --- CART REMOVAL ---
 if (isset($_GET['page']) && $_GET['page'] === 'cart' && isset($_GET['remove'])) {
@@ -117,13 +118,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'address'  => $profile['address'] ?? ''
             ];
             
+            // Store credentials for client-side Firebase Auth sign-in
+            // Required so JS SDK can authenticate for Firestore security rules
+            $_SESSION['user_creds'] = ['email' => $email, 'password' => $pass];
+            
             // Sync cart with Firestore
             $db_cart = $profile['cart'] ?? [];
             if (!empty($_SESSION['cart'])) {
-                // If local cart has items, overwrite the DB cart
                 firestore_update('users', $res['localId'], ['cart' => $_SESSION['cart']]);
             } else if (!empty($db_cart)) {
-                // If local cart is empty but DB has cart, use DB cart
                 $_SESSION['cart'] = $db_cart;
             }
             
@@ -153,6 +156,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'id'       => $res['localId'],
                     'username' => $res['email']
                 ];
+                // Store admin credentials for client-side Firebase Auth
+                $_SESSION['admin_creds'] = ['email' => $email, 'password' => $pass];
                 app_redirect('index.php?page=index_admin');
             } else {
                 $_SESSION['flash_err'] = 'Unauthorized: Admin privileges required.';

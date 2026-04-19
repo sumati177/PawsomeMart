@@ -13,54 +13,47 @@ if (!is_user()) {
   <?php endif; ?>
 
   <div id="ordersContainer">
-      <div class="alert alert-info">Loading your orders...</div>
+      <div class="text-center py-5">
+        <div class="spinner-border text-primary" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mt-2 text-muted">Loading your orders...</p>
+      </div>
   </div>
 </div>
 
 <script type="module">
   import { orderService } from './js/orderService.js';
+  import { ensureAuth } from './js/firebase-config.js';
   
-  const uid = <?php echo json_encode($_SESSION['user']['id']); ?>;
   const container = document.getElementById('ordersContainer');
-  
-  function setLoading(isLoading) {
-      const btn = document.querySelector('.btn-refresh-orders');
-      if (btn) btn.disabled = isLoading;
-      if (isLoading) {
-          container.innerHTML = `
-            <div class="text-center py-5">
-              <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading...</span>
-              </div>
-              <p class="mt-2 text-muted">Locating your orders...</p>
-            </div>
-          `;
-      }
-  }
 
   async function loadOrders() {
-      setLoading(true);
       try {
-          const orders = await orderService.getUserOrders(uid);
-          
-          let debugHtml = `
-            <div class="card border-0 bg-light mb-4 shadow-sm">
-              <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                  <span class="fw-bold text-dark">🔍 System Debug View</span>
-                  <span class="badge bg-primary">Total: ${orders.length}</span>
-                </div>
-                <pre class="small text-dark mb-0" style="max-height:150px; overflow:auto; background:rgba(0,0,0,0.03); padding:10px; border-radius:8px;">${JSON.stringify(orders, null, 2)}</pre>
-              </div>
-            </div>
-          `;
-
-          if (orders.length === 0) {
-              container.innerHTML = debugHtml + '<div class="alert alert-info border-0 shadow-sm">You have not placed any orders yet. <a href="index.php?page=products" class="alert-link">Browse products</a>.</div>';
+          // Authenticate first — getUserOrders() uses auth.currentUser internally
+          const user = await ensureAuth();
+          if (!user) {
+              container.innerHTML = '<div class="alert alert-warning">Authentication failed. Please <a href="index.php?page=login" class="alert-link">log in again</a>.</div>';
               return;
           }
           
-          let tableHtml = `
+          console.log("[MyOrders] Fetching orders for:", user.uid);
+          const orders = await orderService.getUserOrders();
+          console.log("[MyOrders] Received:", orders.length, "orders");
+
+          if (orders.length === 0) {
+              container.innerHTML = '<div class="alert alert-info border-0 shadow-sm">You have not placed any orders yet. <a href="index.php?page=products" class="alert-link">Browse products</a>.</div>';
+              return;
+          }
+          
+          // Sort by createdAt descending (newest first)
+          orders.sort((a, b) => {
+              const aTime = a.createdAt?.seconds || 0;
+              const bTime = b.createdAt?.seconds || 0;
+              return bTime - aTime;
+          });
+
+          let html = `
             <div class="table-responsive card border-0 shadow-sm">
               <table class="table table-hover align-middle mb-0">
                 <thead class="bg-dark text-white">
@@ -83,14 +76,14 @@ if (!is_user()) {
               else if (status === 'processing' || status === 'confirmed') badgeClass = 'bg-warning text-dark';
               else if (status === 'shipped') badgeClass = 'bg-info text-dark';
               else if (status === 'cancelled') badgeClass = 'bg-danger';
-              else if (status === 'pending') badgeClass = 'bg-primary';
+              else if (status === 'pending' || status === 'placed') badgeClass = 'bg-primary';
               
               let itemsHtml = '';
               if (o.items && Array.isArray(o.items)) {
                   o.items.forEach(item => {
                       const name = item.name || item.productName || 'Item';
                       const qty = parseInt(item.quantity || item.qty || 1);
-                      itemsHtml += `<div class="small fw-500">${name} <span class="text-muted">× ${qty}</span></div>`;
+                      itemsHtml += `<div class="small">${name} <span class="text-muted">× ${qty}</span></div>`;
                   });
               } else {
                   itemsHtml = '<small class="text-muted">—</small>';
@@ -108,25 +101,28 @@ if (!is_user()) {
                   dateStr = new Date(o.createdAt.seconds * 1000).toLocaleString();
               }
               
-              tableHtml += `
+              html += `
                 <tr>
                   <td class="ps-3"><code class="text-primary small">${(o.id || '').substring(0,8)}</code></td>
                   <td>${itemsHtml}</td>
-                  <td class="fw-bold text-dark">₹${total}</td>
-                  <td><span class="badge rounded-pill ${badgeClass}" style="font-weight:500; padding:0.5em 1em;">${status.toUpperCase()}</span></td>
+                  <td class="fw-bold">₹${total}</td>
+                  <td><span class="badge rounded-pill ${badgeClass}" style="padding:0.5em 1em;">${status.toUpperCase()}</span></td>
                   <td class="small text-muted" style="max-width:150px;">${address}</td>
                   <td class="pe-3 small">${dateStr}</td>
                 </tr>
               `;
           });
           
-          tableHtml += `</tbody></table></div>`;
-          container.innerHTML = debugHtml + tableHtml;
+          html += `</tbody></table></div>`;
+          container.innerHTML = html;
+          
       } catch (e) {
-          console.error(e);
-          container.innerHTML = `<div class="alert alert-danger shadow-sm border-0"><strong>Error:</strong> Failed to retrieve orders. ${e.message}</div>`;
-      } finally {
-          // ensure setLoading(false) equivalent logic but we just replace innerHTML anyway
+          console.error("[MyOrders] Error:", e);
+          let msg = e.message || 'Unknown error';
+          if (e.code === 'permission-denied') {
+              msg = 'Access denied. Please log out and log in again.';
+          }
+          container.innerHTML = `<div class="alert alert-danger border-0 shadow-sm"><strong>Error:</strong> ${msg}</div>`;
       }
   }
   

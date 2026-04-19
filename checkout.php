@@ -55,6 +55,7 @@ foreach ($_SESSION['cart'] as $it) $total += $it['price'] * $it['qty'];
               <input class="form-check-input" type="radio" name="payment" id="upi" value="UPI">
               <label class="form-check-label" for="upi">📱 UPI (Demo)</label>
             </div>
+            <div id="checkoutError" class="alert alert-danger d-none mb-3"></div>
             <button type="submit" id="placeOrderBtn" class="btn btn-pet w-100 mt-2">✅ Place Order</button>
           </form>
         </div>
@@ -96,24 +97,46 @@ foreach ($_SESSION['cart'] as $it) $total += $it['price'] * $it['qty'];
 <?php if (!empty($user['address']) && !empty($user['phone'])): ?>
 <script type="module">
   import { orderService } from './js/orderService.js';
+  import { ensureAuth } from './js/firebase-config.js';
   
   const checkoutForm = document.getElementById('checkoutForm');
   const placeOrderBtn = document.getElementById('placeOrderBtn');
+  const errorBox = document.getElementById('checkoutError');
   
+  function showError(msg) {
+      errorBox.textContent = msg;
+      errorBox.classList.remove('d-none');
+  }
+  function hideError() {
+      errorBox.classList.add('d-none');
+  }
+
   if (checkoutForm) {
       checkoutForm.addEventListener('submit', async (e) => {
           e.preventDefault();
+          hideError();
           placeOrderBtn.disabled = true;
-          placeOrderBtn.innerHTML = '⏳ Processing Transaction...';
+          placeOrderBtn.innerHTML = '⏳ Authenticating...';
           
-          const userId = <?php echo json_encode($user['id']); ?>;
-          const userEmail = <?php echo json_encode($user['username'] ?? ''); ?>;
+          // Step 1: Ensure client-side Firebase Auth
+          const user = await ensureAuth();
+          if (!user) {
+              showError('Authentication failed. Please log out and log in again.');
+              placeOrderBtn.disabled = false;
+              placeOrderBtn.innerHTML = '✅ Place Order';
+              return;
+          }
+          
+          placeOrderBtn.innerHTML = '⏳ Processing Order...';
+          
           const address = <?php echo json_encode($user['address']); ?>;
           const phone = <?php echo json_encode($user['phone']); ?>;
           const totalAmount = <?php echo $total; ?>;
+          const paymentMethod = document.querySelector('input[name="payment"]:checked')?.value || 'COD';
           
+          // Phone validation
           if (!/^[0-9]{10}$/.test(phone)) {
-              alert('Invalid phone number. Must be 10 digits.');
+              showError('Invalid phone number. Must be 10 digits.');
               placeOrderBtn.disabled = false;
               placeOrderBtn.innerHTML = '✅ Place Order';
               return;
@@ -132,12 +155,17 @@ foreach ($_SESSION['cart'] as $it) $total += $it['price'] * $it['qty'];
             echo json_encode(array_values($jsItems));
           ?>;
 
-          const res = await orderService.placeOrder(userId, userEmail, items, totalAmount, address, phone);
+          console.log("[Checkout] Placing order as:", user.uid);
+
+          // placeOrder now uses auth.currentUser internally
+          const res = await orderService.placeOrder(items, totalAmount, address, phone, paymentMethod);
           
-          if(res.success) {
+          if (res.success) {
+              placeOrderBtn.innerHTML = '✅ Order Placed!';
+              console.log("[Checkout] Success, order ID:", res.orderId);
               window.location.href = 'index.php?page=checkout&action=clear_cart_after_order';
           } else {
-              alert('Checkout Failed: ' + res.error);
+              showError('Checkout Failed: ' + res.error);
               placeOrderBtn.disabled = false;
               placeOrderBtn.innerHTML = '✅ Place Order';
           }
